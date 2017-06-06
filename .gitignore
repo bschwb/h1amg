@@ -1,0 +1,19 @@
+# Netgen/NGSolve generated files
+ngs.prof.*
+ng.prof
+ngs.ini
+ng.ini
+ngmesh.ini
+*.trace
+*.vol
+
+test.out
+tags
+
+build/
+*.cpp~
+*.hpp~
+*.o
+*.so
+
+__pycache__/
