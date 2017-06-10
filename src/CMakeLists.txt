@@ -7,7 +7,7 @@ add_library(h1amg SHARED
   h1_smoothed_prol.hpp h1_smoothed_prol.cpp
   complex_mat.hpp complex_mat.cpp)
 
-target_link_libraries(h1amg ngstd ngcomp ngla ngbla)
+target_link_libraries(h1amg ngsolve)
 
 set_property(TARGET h1amg PROPERTY CXX_STANDARD 14)
 set_property(TARGET h1amg PROPERTY CXX_STANDARD_REQUIRED ON)

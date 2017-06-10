@@ -4,16 +4,14 @@ project(h1amg CXX)
 set(NETGEN_BASE_DIR $ENV{NETGENDIR}/.. CACHE PATH "Netgen install dir")
 set(NETGEN_LIB_DIR ${NETGEN_BASE_DIR}/lib)
 
-find_package(NGSolve CONFIG HINTS ${NETGEN_BASE_DIR}/share/cmake ${NETGEN_BASE_DIR}/Resources/share/cmake)
-find_package(Netgen CONFIG HINTS ${NETGEN_BASE_DIR}/share/cmake ${NETGEN_BASE_DIR}/Resources/share/cmake)
+find_package(NGSolve CONFIG HINTS ${NETGEN_BASE_DIR} ${NETGEN_BASE_DIR}/share/cmake
+  ${NETGEN_BASE_DIR}/Resources/share/cmake)
+find_package(Netgen CONFIG HINTS ${NETGEN_BASE_DIR} ${NETGEN_BASE_DIR}/share/cmake
+  ${NETGEN_BASE_DIR}/Resources/share/cmake)
 
-set(CMAKE_BUILD_TYPE Release)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${NGSOLVE_COMPILE_FLAGS}" )
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${NGSOLVE_LINK_FLAGS}" )
-set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} ${NGSOLVE_LINK_FLAGS}" )
-set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${NGSOLVE_LINK_FLAGS}" )
-
-set(CMAKE_INSTALL_PREFIX ${NETGEN_BASE_DIR} CACHE INTERNAL "Prefix prepended to install directories" FORCE)
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Release)
+endif(NOT CMAKE_BUILD_TYPE)
 
 include_directories(${NGSOLVE_INCLUDE_DIRS} "${CMAKE_SOURCE_DIR}/include")
 

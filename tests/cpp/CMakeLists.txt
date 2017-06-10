@@ -9,6 +9,6 @@ set_property(TARGET test_h1amg PROPERTY CXX_STANDARD_REQUIRED ON)
 add_dependencies(test_h1amg h1amg)
 target_include_directories(test_h1amg
   PRIVATE "${CMAKE_SOURCE_DIR}/src")
-target_link_libraries(test_h1amg h1amg ngslib ngstd ngla)
+target_link_libraries(test_h1amg h1amg ngsolve)
 
 add_test(NAME cpp_tests COMMAND test_h1amg)
