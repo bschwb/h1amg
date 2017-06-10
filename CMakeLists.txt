@@ -1,13 +1,8 @@
 cmake_minimum_required(VERSION 2.8 FATAL_ERROR)
 project(h1amg CXX)
 
-set(NETGEN_BASE_DIR $ENV{NETGENDIR}/.. CACHE PATH "Netgen install dir")
-set(NETGEN_LIB_DIR ${NETGEN_BASE_DIR}/lib)
-
-find_package(NGSolve CONFIG HINTS ${NETGEN_BASE_DIR} ${NETGEN_BASE_DIR}/share/cmake
-  ${NETGEN_BASE_DIR}/Resources/share/cmake)
-find_package(Netgen CONFIG HINTS ${NETGEN_BASE_DIR} ${NETGEN_BASE_DIR}/share/cmake
-  ${NETGEN_BASE_DIR}/Resources/share/cmake)
+find_package(Netgen CONFIG HINTS ${NETGEN_DIR} ${NETGEN_CMAKE_DIR})
+find_package(NGSolve CONFIG HINTS ${NGSOLVE_DIR} ${NETGEN_CMAKE_DIR})
 
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
