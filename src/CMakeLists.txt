@@ -12,4 +12,5 @@ target_link_libraries(h1amg ngsolve)
 set_property(TARGET h1amg PROPERTY CXX_STANDARD 14)
 set_property(TARGET h1amg PROPERTY CXX_STANDARD_REQUIRED ON)
 
-install(TARGETS h1amg DESTINATION ${NETGEN_LIB_DIR})
+install(TARGETS h1amg DESTINATION ${NGSOLVE_INSTALL_DIR_LIB})
+install(FILES h1.hpp build_h1.hpp complex_mat.hpp DESTINATION ${NGSOLVE_INSTALL_DIR_INCLUDE})

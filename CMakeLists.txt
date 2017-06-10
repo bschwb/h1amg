@@ -15,6 +15,8 @@ endif(NOT CMAKE_BUILD_TYPE)
 
 include_directories(${NGSOLVE_INCLUDE_DIRS} "${CMAKE_SOURCE_DIR}/include")
 
+set(CMAKE_INSTALL_PREFIX ${NGSOLVE_INSTALL_DIR})
+
 if(USE_CCACHE)
   find_program(CCACHE_FOUND ccache)
   if(CCACHE_FOUND)
