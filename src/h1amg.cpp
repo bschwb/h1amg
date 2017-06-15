@@ -94,14 +94,14 @@ void H1AMG::AddElementMatrixCommon(
   FlatMatrix<double> approx_elmat(ndof, lh);
   approx_elmat = 0;
 
+  FlatMatrix<double> schur_complement(2, lh);
+  BitArray used(ndof, lh);
   for (auto i=0; i < ndof; ++i) {
     for (auto j=0; j < ndof; ++j) {
       auto first_dof = dnums[i];
       auto second_dof = dnums[j];
       if (first_dof < second_dof) {
-        FlatMatrix<double> schur_complement(2, lh);
         schur_complement = 0;
-        BitArray used(ndof, lh);
         used.Clear();
 
         // the schur-complement is calculated in respect to the two current
