@@ -375,7 +375,7 @@ UPtrSMdbl H1SemiSmoothedProl(
         }
         else {
           auto row = econ.GetRowIndices(dof_f);
-          Array<int> other_c;
+          ArrayMem<int, 20> other_c;
           for (auto d:row) {
             if (vertex_coarse[d]!=-1 && !other_c.Contains(vertex_coarse[d])) {
               other_c.Append(vertex_coarse[d]);
@@ -423,8 +423,8 @@ UPtrSMdbl H1SemiSmoothedProl(
         auto dof_f = c2f[dof_c][l];
         auto other_dof = c2f[dof_c][1-l];
         double wt_other_dof = ew[(int)cecon(dof_f, other_dof)];
-        Array<int> other_ds;
-        Array<double> wts;
+        ArrayMem<int, 20> other_ds;
+        ArrayMem<double, 20> wts;
         double s = wt_other_dof;
         for (auto j : cecon.GetRowIndices(dof_f)) {
           if (j != other_dof && vertex_coarse[j] != -1) {
