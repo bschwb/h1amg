@@ -23,6 +23,7 @@ endif(USE_CCACHE)
 
 add_subdirectory(src)
 
+option(BUILD_TESTING "" OFF)
 include(CTest)
 if(BUILD_TESTING)
   include(cmake_modules/PythonLibTest.cmake)
