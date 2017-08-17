@@ -3,14 +3,15 @@
 
 namespace h1amg
 {
-
+  using ngstd::INT;
+  
 // Figure out best edges to collapse or vertices to collapse with ground
 // with iterative improvement.
 // Given is a edge to vertices mapping, collapse weights for the edges and
 // vertices.
 void IterativeCollapse(
     const ngstd::Array<INT<2>>& edge_to_vertices, const ngstd::Array<double>& edge_collapse_weight,
-    const ngstd::Array<double>& vertex_collapse_weight, shared_ptr<ngstd::BitArray> free_dofs,
+    const ngstd::Array<double>& vertex_collapse_weight, std::shared_ptr<ngstd::BitArray> free_dofs,
     ngstd::Array<bool>& edge_collapse, ngstd::Array<bool>& vertex_collapse);
 
 // Compute the balanced collapse weights for edges and vertices from the
