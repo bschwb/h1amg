@@ -6,7 +6,8 @@ from ctypes import CDLL
 import ngsolve as ngs
 from ngsolve import x, grad
 
-mylngs = CDLL('libh1amg.so')
+CDLL('libh1amg.so')
+ngs.ngsglobals.pajetrace = 100000000
 
 with ngs.TaskManager():
     mesh = ngs.Mesh('cube.vol')
@@ -28,7 +29,7 @@ with ngs.TaskManager():
     a = ngs.BilinearForm(fes, symmetric=False)
     a += ngs.SymbolicBFI(grad(u) * grad(v) + u * v)
 
-    c = ngs.Preconditioner(a, 'h1amg', flags={'test': True})
+    c = ngs.Preconditioner(a, 'h1amg')
 
     gfu = ngs.GridFunction(fes)
     bvp = ngs.BVP(bf=a, lf=f, gf=gfu, pre=c)

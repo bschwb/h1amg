@@ -10,7 +10,7 @@ with ngs.TaskManager():
     side = 1
     box = csg.OrthoBrick(origin, csg.Pnt(side, 2*side, side)).bc('cube_outer')
 
-    normal_vec = csg.Vec3d(0, 1, 0)
+    normal_vec = csg.Vec(0, 1, 0)
     topplane = csg.Plane(csg.Pnt(0, 1, 0), normal_vec).bc('dirichlet')
 
     cube = (box * topplane).mat('cube_mat')
