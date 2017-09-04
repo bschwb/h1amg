@@ -7,6 +7,8 @@ using namespace ngla;
 #include "h1_helpers.hpp"
 
 #include "h1_smoothed_prol.hpp"
+#include "dist1collapser.hpp"
+#include "edge.hpp"
 
 #include "build_h1.hpp"
 
@@ -27,17 +29,14 @@ shared_ptr<H1AMG_Mat> BuildH1AMG(
 
   cout << IM(5) << "H1 Sysmat nze: " << sysmat->NZE() << endl;
   cout << IM(5) << "H1 Sysmat nze per row: " << sysmat->NZE() / (double)sysmat->Height() << endl;
-  auto nr_edges = edge_to_vertices.Size();
-  auto nr_vertices = weights_vertices.Size();
+  auto ne = edge_to_vertices.Size();
+  auto nv = weights_vertices.Size();
 
   cout << IM(5) << "H1 level " << h1_options.level
-       << ", nr_edges = " << nr_edges
-       << ", nr_vertices = " << nr_vertices << endl;
+       << ", nr_edges = " << ne
+       << ", nr_vertices = " << nv << endl;
 
   Array<int> vertex_coarse;
-
-  Array<bool> edge_collapse;
-  Array<bool> vertex_collapse;
 
   Array<double> vertex_strength;
   Array<double> edge_collapse_weight;
@@ -53,12 +52,55 @@ shared_ptr<H1AMG_Mat> BuildH1AMG(
       edge_to_vertices, weights_edges, weights_vertices, vertex_strength, edge_collapse_weight,
       vertex_collapse_weight);
 
-  IterativeCollapse(
-      edge_to_vertices, edge_collapse_weight, vertex_collapse_weight, free_dofs, edge_collapse,
-      vertex_collapse);
+  // IterativeCollapse(
+  //     edge_to_vertices, edge_collapse_weight, vertex_collapse_weight, free_dofs, edge_collapse,
+  //     vertex_collapse);
+
+  static Timer Tdist1sorted("Dist1 Sorted Collapsing");
+  Tdist1sorted.Start();
+  static Timer t1("Dist1 Sorted Collapsing sorting");
+  static Timer t2("Dist1 Sorted Collapsing work");
+
+  Dist1Collapser collapser(nv, ne);
+
+  t1.Start();
+  Array<int> indices(ne);
+  Array<Edge> edges(ne);
+  for (size_t edge = 0; edge < ne; ++edge) {
+    indices[edge] = edge;
+    edges[edge] = Edge(edge, edge_to_vertices[edge][0], edge_to_vertices[edge][1]);
+  }
+
+  QuickSortI(edge_collapse_weight, indices);
+  t1.Stop();
+
+  t2.Start();
+  int ecnt = 0;
+  for (int i = ne-1; i >= 0; --i) {
+    auto edge = edges[i];
+
+    if (ecnt >= ne/2.)
+      break;
+    if (edge_collapse_weight[indices[i]] >= 0.01 && !collapser.AnyVertexCollapsed(edge)) {
+      ecnt++;
+      collapser.CollapseEdge(edge);
+    }
+  }
+  t2.Stop();
+  Tdist1sorted.Stop();
+
+  Array<bool> vertex_collapse(nv);
+  for (int vert = 0; vert < nv; ++vert) {
+    vertex_collapse[vert] = (collapser.GetCollapsedToVertex(vert) != vert);
+  }
+
+  Array<bool> edge_collapse(ne);
+  for (auto edge : edges) {
+    edge_collapse[edge.id] = bool(collapser.GetCollapsedEdge(edge));
+  }
 
   int nr_coarse_vertices = ComputeFineToCoarseVertex(
-      edge_to_vertices, vertex_collapse.Size(), edge_collapse, vertex_collapse, vertex_coarse);
+      edge_to_vertices, nv, edge_collapse, vertex_collapse, vertex_coarse);
 
   ComputeFineToCoarseEdge(edge_to_vertices, vertex_coarse, edge_coarse, coarse_edge_to_vertices);
 
@@ -68,14 +110,13 @@ shared_ptr<H1AMG_Mat> BuildH1AMG(
   ComputeCoarseWeightsVertices(edge_to_vertices, vertex_coarse, nr_coarse_vertices, weights_edges,
       weights_vertices, weights_vertices_coarse);
 
-
   static Timer Tblock_table("H1-AMG::BlockJacobiTable");
   Tblock_table.Start();
 
   Array<int> nentries(nr_coarse_vertices);
   nentries = 0;
 
-  for (auto fvert = 0; fvert < nr_vertices; ++ fvert) {
+  for (auto fvert = 0; fvert < nv; ++ fvert) {
     auto cvert = vertex_coarse[fvert];
     if (cvert != -1) {
       nentries[cvert] += 1;
@@ -86,7 +127,7 @@ shared_ptr<H1AMG_Mat> BuildH1AMG(
   Array<int> cnt(nr_coarse_vertices);
   cnt = 0;
 
-  for (auto fvert = 0; fvert < nr_vertices; ++ fvert) {
+  for (auto fvert = 0; fvert < nv; ++ fvert) {
     auto cvert = vertex_coarse[fvert];
     if (cvert != -1) {
       (*blocks)[cvert][cnt[cvert]++] = fvert;
@@ -123,7 +164,7 @@ shared_ptr<H1AMG_Mat> BuildH1AMG(
   auto amg_h1 = make_shared<H1AMG_Mat>(sysmat, bjacobi, std::move(prol), smoother_its);
 
   if (nr_coarse_vertices <= h1_options.min_verts
-      || nr_coarse_vertices >= h1_options.vertex_factor * nr_vertices
+      || nr_coarse_vertices >= h1_options.vertex_factor * nv
       || h1_options.level <= 1)
   {
     auto sptr_cmat = shared_ptr<BaseSparseMatrix>(coarsemat);

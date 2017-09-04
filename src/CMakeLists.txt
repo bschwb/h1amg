@@ -5,7 +5,9 @@ add_library(h1amg SHARED
   build_h1.hpp build_h1.cpp
   h1_helpers.hpp h1_helpers.cpp
   h1_smoothed_prol.hpp h1_smoothed_prol.cpp
-  complex_mat.hpp complex_mat.cpp)
+  complex_mat.hpp complex_mat.cpp
+  edge.hpp
+  dist1collapser.hpp dist1collapser.cpp)
 
 target_link_libraries(h1amg ngsolve)
 

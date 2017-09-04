@@ -166,23 +166,22 @@ void ComputeCollapseWeights(
 
 
 int ComputeFineToCoarseVertex(
-  const ngstd::Array<INT<2>>& edge_to_vertices, int nverts,
+  const ngstd::Array<INT<2>>& edge_to_vertices, int nv,
   const ngstd::Array<bool>& edge_collapse, const ngstd::Array<bool>& vertex_collapse,
   ngstd::Array<int>& vertex_coarse )
 {
-  static Timer Tf2c_verts("H1-AMG::ComputeFineToCoarseVertex");
-  RegionTimer Rf2c_verts(Tf2c_verts);
+  // static Timer Tf2c_verts("H1-AMG::ComputeFineToCoarseVertex");
+  // RegionTimer Rf2c_verts(Tf2c_verts);
 
   int nr_edges = edge_to_vertices.Size();
-  int nr_vertices = nverts;
   int nr_coarse_vertices = 0;
 
-  ngstd::Array<int> connected(nr_vertices);
-  vertex_coarse.SetSize(nr_vertices);
+  ngstd::Array<int> connected(nv);
+  vertex_coarse.SetSize(nv);
 
   vertex_coarse = -4;
 
-  for (int vertex = 0; vertex < nr_vertices; ++vertex)
+  for (int vertex = 0; vertex < nv; ++vertex)
     connected[vertex] = vertex;
 
   for (int edge = 0; edge < nr_edges; ++edge)
@@ -200,7 +199,7 @@ int ComputeFineToCoarseVertex(
     }
   }
 
-  for (int vertex = 0; vertex < nr_vertices; ++vertex)
+  for (int vertex = 0; vertex < nv; ++vertex)
   {
     if (connected[vertex] == vertex)
     {
@@ -214,7 +213,7 @@ int ComputeFineToCoarseVertex(
   }
 
   *testout << "vertex_coarse before | after fillup:" << endl;
-  for (int vertex = 0; vertex < nr_vertices; ++vertex)
+  for (int vertex = 0; vertex < nv; ++vertex)
   {
     *testout << vertex << ":  " << vertex_coarse[vertex] << " | ";
     if (connected[vertex] != vertex) {
