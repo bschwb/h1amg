@@ -9,6 +9,7 @@ using namespace ngla;
 #include "h1_smoothed_prol.hpp"
 #include "dist1collapser.hpp"
 #include "edge.hpp"
+#include "sample_sort.hpp"
 
 #include "build_h1.hpp"
 
@@ -71,7 +72,7 @@ shared_ptr<H1AMG_Mat> BuildH1AMG(
     edges[edge] = Edge(edge, edge_to_vertices[edge][0], edge_to_vertices[edge][1]);
   }
 
-  QuickSortI(edge_collapse_weight, indices);
+  SampleSortI(edge_collapse_weight, indices);
   t1.Stop();
 
   t2.Start();
