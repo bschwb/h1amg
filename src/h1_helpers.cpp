@@ -15,6 +15,9 @@ void IterativeCollapse(
     const ngstd::Array<double>& vertex_collapse_weight, shared_ptr<ngstd::BitArray> free_dofs,
     ngstd::Array<bool>& edge_collapse, ngstd::Array<bool>& vertex_collapse)
 {
+  static Timer Titer_coll("H1-AMG::IterativeCollapse");
+  RegionTimer Riter_coll(Titer_coll);
+
   assert(edge_to_vertices.Size() == edge_collapse_weight.Size());
   int nr_vertices = vertex_collapse_weight.Size();
   int nr_edges = edge_collapse_weight.Size();
@@ -120,6 +123,9 @@ void ComputeCollapseWeights(
     const ngstd::Array<double>& weights_vertices, ngstd::Array<double>& vertex_strength,
     ngstd::Array<double>& edge_collapse_weight, ngstd::Array<double>& vertex_collapse_weight)
 {
+  static Timer Tcoll_weights("H1-AMG::ComputeCollapseWeights");
+  RegionTimer Rcoll_weights(Tcoll_weights);
+
   assert(edge_to_vertices.Size() == weights_edges.Size());
   int nr_edges = edge_to_vertices.Size();
   int nr_vertices = weights_vertices.Size();
@@ -164,6 +170,9 @@ int ComputeFineToCoarseVertex(
   const ngstd::Array<bool>& edge_collapse, const ngstd::Array<bool>& vertex_collapse,
   ngstd::Array<int>& vertex_coarse )
 {
+  static Timer Tf2c_verts("H1-AMG::ComputeFineToCoarseVertex");
+  RegionTimer Rf2c_verts(Tf2c_verts);
+
   int nr_edges = edge_to_vertices.Size();
   int nr_vertices = nverts;
   int nr_coarse_vertices = 0;
@@ -293,6 +302,9 @@ void ComputeCoarseWeightsEdges(
   const ngstd::Array<INT<2>>& coarse_edge_to_vertices, const ngstd::Array<int>& edge_coarse,
   const ngstd::Array<double>& weights_edges, ngstd::Array<double>& weights_edges_coarse)
 {
+  static Timer Tcoarse_eweights("H1-AMG::ComputeCoarseWeightsEdges");
+  RegionTimer Rcoarse_eweights(Tcoarse_eweights);
+
   weights_edges_coarse.SetSize(coarse_edge_to_vertices.Size());
   weights_edges_coarse = 0;
 
@@ -309,6 +321,9 @@ void ComputeCoarseWeightsVertices(
   const int nr_coarse_vertices, const ngstd::Array<double>& weights_edges,
   const ngstd::Array<double>& weights_vertices, ngstd::Array<double>& weights_vertices_coarse)
 {
+  static Timer Tcoarse_vweights("H1-AMG::ComputeCoarseWeightsVertices");
+  RegionTimer Rcoarse_vweights(Tcoarse_vweights);
+
   int nr_vertices = weights_vertices.Size();
   int nr_edges = edge_to_vertices.Size();
 

@@ -40,6 +40,8 @@ H1AMG::H1AMG(shared_ptr<BilinearForm> a_bfa, const Flags& a_flags, const string 
 
 void H1AMG::InitLevel(shared_ptr<BitArray> afreedofs)
 {
+  static Timer Tinit_level("H1-AMG::InitLevel");
+  RegionTimer Rinit_level(Tinit_level);
   *testout << "initlevel amg" << endl;
   freedofs = afreedofs;
   int nr_dofs = freedofs->Size(); //bfa->GetFESpace()->GetNDof();
@@ -49,6 +51,9 @@ void H1AMG::InitLevel(shared_ptr<BitArray> afreedofs)
 
 void H1AMG::FinalizeLevel(const BaseMatrix* mat)
 {
+  static Timer Tfinlevel("H1-AMG::FinalizeLevel");
+  RegionTimer Rfinlevel(Tfinlevel);
+
   *testout << "finalize lvl  amg" << endl;
   int cnt = 0;
   for (auto key_val: dof_pair_weights)

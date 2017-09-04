@@ -22,6 +22,9 @@ shared_ptr<H1AMG_Mat> BuildH1AMG(
     const Array<double>& weights_edges, const Array<double>& weights_vertices,
     shared_ptr<BitArray> free_dofs, const H1Options& h1_options)
 {
+  static Timer Tbuild_h1("H1-AMG::BuildH1AMG");
+  RegionTimer Rbuild_h1(Tbuild_h1);
+
   cout << IM(5) << "H1 Sysmat nze: " << sysmat->NZE() << endl;
   cout << IM(5) << "H1 Sysmat nze per row: " << sysmat->NZE() / (double)sysmat->Height() << endl;
   auto nr_edges = edge_to_vertices.Size();
@@ -65,6 +68,10 @@ shared_ptr<H1AMG_Mat> BuildH1AMG(
   ComputeCoarseWeightsVertices(edge_to_vertices, vertex_coarse, nr_coarse_vertices, weights_edges,
       weights_vertices, weights_vertices_coarse);
 
+
+  static Timer Tblock_table("H1-AMG::BlockJacobiTable");
+  Tblock_table.Start();
+
   Array<int> nentries(nr_coarse_vertices);
   nentries = 0;
 
@@ -86,6 +93,7 @@ shared_ptr<H1AMG_Mat> BuildH1AMG(
     }
   }
   auto bjacobi = sysmat->CreateBlockJacobiPrecond(blocks, 0, 1, free_dofs);
+  Tblock_table.Stop();
 
   UPtrSMdbl prol;
   int level_diff = h1_options.maxlevel - h1_options.level;
@@ -101,7 +109,10 @@ shared_ptr<H1AMG_Mat> BuildH1AMG(
   }
 
   // build coarse mat
+  static Timer Trestrict_sysmat("H1-AMG::RestrictSysmat");
+  Trestrict_sysmat.Start();
   auto coarsemat = sysmat->Restrict(*prol);
+  Trestrict_sysmat.Stop();
   cout << IM(5) << "H1 Coarsemat nze: " << coarsemat->NZE() << endl;
   cout << IM(5) << "H1 Coarsemat nze per row: "
        << coarsemat->NZE() / (double)coarsemat->Height() << endl;
@@ -135,6 +146,9 @@ shared_ptr<H1AMG_Mat> BuildH1AMG(
 
 UPtrSMdbl CreateProlongation(const Array<int>& vertex_coarse, int ncv, bool complx)
 {
+  static Timer Tcreate_prol("H1-AMG::CreateProlongation");
+  RegionTimer Rcreate_prol(Tcreate_prol);
+
   auto nv = vertex_coarse.Size();
   Array<int> non_zero_per_row(nv);
   non_zero_per_row = 0;
