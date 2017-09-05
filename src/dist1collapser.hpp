@@ -55,6 +55,11 @@ public:
   // Revert collapse informations about edge.
   void UncollapseEdge(Edge edge);
 
+  bool IsEdgeCollapsed(Edge edge)
+  {
+    return m_edge_collapsed[edge.id];
+  }
+
 private:
   std::vector<size_t> m_vertex_collapsed_to;
   std::vector<std::experimental::optional<Edge>> m_vertex_collapsed_edge;

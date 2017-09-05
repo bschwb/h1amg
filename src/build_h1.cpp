@@ -98,7 +98,7 @@ shared_ptr<H1AMG_Mat> BuildH1AMG(
   tecoll.Start();
   Array<bool> edge_collapse(ne);
   for (auto edge : edges) {
-    edge_collapse[edge.id] = bool(collapser.GetCollapsedEdge(edge));
+    edge_collapse[edge.id] = collapser.IsEdgeCollapsed(edge);
   }
   tecoll.Stop();
 
