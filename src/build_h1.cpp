@@ -33,10 +33,6 @@ shared_ptr<H1AMG_Mat> BuildH1AMG(
   auto ne = edge_to_vertices.Size();
   auto nv = weights_vertices.Size();
 
-  cout << IM(5) << "H1 level " << h1_options.level
-       << ", nr_edges = " << ne
-       << ", nr_vertices = " << nv << endl;
-
   Array<int> vertex_coarse;
 
   Array<double> vertex_strength;
@@ -76,14 +72,14 @@ shared_ptr<H1AMG_Mat> BuildH1AMG(
   t1.Stop();
 
   t2.Start();
-  int ecnt = 0;
+  int vcnt = 0;
   for (int i = ne-1; i >= 0; --i) {
-    auto edge = edges[i];
+    auto edge = edges[indices[i]];
 
-    if (ecnt >= ne/2.)
+    if (vcnt >= nv/2.)
       break;
-    if (edge_collapse_weight[indices[i]] >= 0.01 && !collapser.AnyVertexCollapsed(edge)) {
-      ecnt++;
+    if (edge_collapse_weight[edge.id] >= 0.01 && !collapser.AnyVertexCollapsed(edge)) {
+      ++vcnt;
       collapser.CollapseEdge(edge);
     }
   }
@@ -155,9 +151,12 @@ shared_ptr<H1AMG_Mat> BuildH1AMG(
   Trestrict_sysmat.Start();
   auto coarsemat = sysmat->Restrict(*prol);
   Trestrict_sysmat.Stop();
-  cout << IM(5) << "H1 Coarsemat nze: " << coarsemat->NZE() << endl;
-  cout << IM(5) << "H1 Coarsemat nze per row: "
-       << coarsemat->NZE() / (double)coarsemat->Height() << endl;
+
+  cout << IM(5) << "H1 level " << h1_options.level
+       << ", Nr. vertices: " << nv << ", Nr. edges: " << ne << endl
+       << "e/v: " << ne/double(nv) << endl
+       << "coarse/fine verts: " << nr_coarse_vertices/double(nv)
+       << ", coarse/fine edges: " << coarse_edge_to_vertices.Size()/double(ne)<< endl;
 
   int smoother_its = 1;
   if (h1_options.variable_vcycle) { smoother_its = pow(2, level_diff); }
