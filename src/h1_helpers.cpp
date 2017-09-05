@@ -170,8 +170,8 @@ int ComputeFineToCoarseVertex(
   const ngstd::Array<bool>& edge_collapse, const ngstd::Array<bool>& vertex_collapse,
   ngstd::Array<int>& vertex_coarse )
 {
-  // static Timer Tf2c_verts("H1-AMG::ComputeFineToCoarseVertex");
-  // RegionTimer Rf2c_verts(Tf2c_verts);
+  static Timer Tf2c_verts("H1-AMG::ComputeFineToCoarseVertex");
+  RegionTimer Rf2c_verts(Tf2c_verts);
 
   int nr_edges = edge_to_vertices.Size();
   int nr_coarse_vertices = 0;

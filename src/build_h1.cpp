@@ -86,15 +86,21 @@ shared_ptr<H1AMG_Mat> BuildH1AMG(
   t2.Stop();
   Tdist1sorted.Stop();
 
+  static Timer tvcoll("Interm Vcollapse");
+  tvcoll.Start();
   Array<bool> vertex_collapse(nv);
   for (int vert = 0; vert < nv; ++vert) {
     vertex_collapse[vert] = (collapser.GetCollapsedToVertex(vert) != vert);
   }
+  tvcoll.Stop();
 
+  static Timer tecoll("Interm Ecollapse");
+  tecoll.Start();
   Array<bool> edge_collapse(ne);
   for (auto edge : edges) {
     edge_collapse[edge.id] = bool(collapser.GetCollapsedEdge(edge));
   }
+  tecoll.Stop();
 
   int nr_coarse_vertices = ComputeFineToCoarseVertex(
       edge_to_vertices, nv, edge_collapse, vertex_collapse, vertex_coarse);
