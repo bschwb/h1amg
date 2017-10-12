@@ -25,6 +25,32 @@ If you need more output, e.g. to see specific tests failing, use `ctest -V`.
 To run individual tests use `ctest -R <regex>`.
 E.g. `ctest -R h1` to only run h1 integration tests.
 
+## Profiling
+At the beginning of the python script you want to profile add the following line to specify
+the maximum tracefile size in bytes.
+```python
+import ngsolve as ngs
+ngs.ngsglobals.pajetrace = 100000000
+```
+
+After running your example, a file named `ng0.trace` will be saved in the directory
+you ran the example in.
+You can view this file with [vite](http://vite.gforge.inria.fr/).
+
+### Profiling Errors
+
+If you get the following error message, try to increase the maximum tracefile size.
+```
+Tracing stopped during computation due to tracefile size limit of 0 megabytes.
+To increase the limit, set in the pde file:
+flags tracer = -max_size=size_in_megabytes
+
+max_size=0 disables tracing
+```
+
+The error message describes how to fix it in case of using a `.pde` file which is not what we use
+for here.
+
 ## Contributers
 
 * [Joachim Schöberl](http://www.asc.tuwien.ac.at/~schoeberl/wiki/index.php/Joachim_Sch%C3%B6berl)
