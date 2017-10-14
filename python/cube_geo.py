@@ -4,7 +4,8 @@
 import netgen.csg as csg
 import ngsolve as ngs
 
-with ngs.TaskManager():
+
+def cube_geo():
     origin = csg.Pnt(0, 0, 0)
 
     side = 1
@@ -17,6 +18,9 @@ with ngs.TaskManager():
 
     cube_geom = csg.CSGeometry()
     cube_geom.Add(cube)
+    return cube_geom
 
-    mesh = cube_geom.GenerateMesh(maxh=0.02)
-    mesh.Save('cube.vol')
+if __name__ == '__main__':
+    with ngs.TaskManager():
+        mesh = cube_geo().GenerateMesh(maxh=0.1)
+        mesh.Save('cube.vol')

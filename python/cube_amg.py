@@ -5,12 +5,21 @@ from ctypes import CDLL
 
 import ngsolve as ngs
 from ngsolve import x, grad
+from netgen.libngpy._meshing import NgException
+
+from cube_geo import cube_geo
 
 CDLL('libh1amg.so')
-ngs.ngsglobals.pajetrace = 100000000
+# ngs.ngsglobals.pajetrace = 100000000
 
 with ngs.TaskManager():
-    mesh = ngs.Mesh('cube.vol')
+    try:
+        mesh = ngs.Mesh('cube.vol')
+    except NgException:
+        ngmesh = cube_geo().GenerateMesh(maxh=0.1)
+        ngmesh.Save('cube.vol')
+        mesh = ngs.Mesh('cube.vol')
+
     print(mesh.GetMaterials())
     print(mesh.GetBoundaries())
 
