@@ -55,21 +55,26 @@ void H1AMG::FinalizeLevel(const BaseMatrix* mat)
   RegionTimer Rfinlevel(Tfinlevel);
 
   *testout << "finalize lvl  amg" << endl;
+
+  static Timer Tcnt_edges("H1-AMG::FinalizeLevel::CountEdges");
+  Tcnt_edges.Start();
   int cnt = 0;
   for (auto key_val: dof_pair_weights)
   { ++cnt; }
+  Tcnt_edges.Stop();
 
+  static Timer Tcreate_e2v("H1-AMG::FinalizeLevel::CreateE2VMapping");
+  Tcreate_e2v.Start();
   Array<double> weights (cnt);
   Array<INT<2> > edge_to_vertices (cnt);
-  Array<int> indices (cnt);
   int i = 0;
 
   for (auto key_val: dof_pair_weights) {
-    indices[i] = i;
     weights[i] = key_val.second;
     edge_to_vertices[i] = key_val.first;
     ++i;
   }
+  Tcreate_e2v.Stop();
 
   amg_matrix = BuildH1AMG(
       dynamic_cast<const BaseSparseMatrix*>(mat), edge_to_vertices, weights, weights_vertices,
