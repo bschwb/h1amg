@@ -42,27 +42,28 @@ void ComputeCollapseWeights(
 
   static Timer Tcweights_vcollweight("H1-AMG::ComputeCollapseWeights::VertCollWeight");
   Tcweights_vcollweight.Start();
-  for (int i = 0; i < nr_vertices; ++i) {
+  ParallelFor(nr_vertices, [&] (int i) {
     double current_weight = weights_vertices[i];
     vertex_strength[i] += current_weight;
 
     // when vertex weight is not 0.0, then also vertex_strength of that vertex
     // can't be 0.0
-    if (current_weight != 0.0)
+    if (current_weight != 0.0) {
       vertex_collapse_weight[i] = current_weight / vertex_strength[i];
-  }
+    }
+  });
   Tcweights_vcollweight.Stop();
 
   static Timer Tcweights_ecollweight("H1-AMG::ComputeCollapseWeights::EdgeCollWeight");
   Tcweights_ecollweight.Start();
-  for (int i = 0; i < nr_edges; ++i) {
+  ParallelFor(nr_edges, [&] (int i) {
     double vstr1 = vertex_strength[edge_to_vertices[i][0]];
     double vstr2 = vertex_strength[edge_to_vertices[i][1]];
 
     // share of the edge weight to the vertex strength
     // same as: weights_edges[i] / vstr1 + weights_edges[i] / vstr2
     edge_collapse_weight[i] = weights_edges[i] * (vstr1+vstr2) / (vstr1 * vstr2);
-  }
+  });
   Tcweights_ecollweight.Stop();
 }
 
@@ -85,13 +86,15 @@ int ComputeFineToCoarseVertex(
 
   static Timer Tf2cv_sc("H1-AMG::ComputeFineToCoarseVertex::SelfConnect");
   Tf2cv_sc.Start();
-  for (int vertex = 0; vertex < nv; ++vertex) {
+  ParallelFor(nv, [&connected] (int vertex) {
     connected[vertex] = vertex;
-  }
+  });
   Tf2cv_sc.Stop();
 
   static Timer Tf2cv_cc("H1-AMG::ComputeFineToCoarseVertex::CoarseConnection");
   Tf2cv_cc.Start();
+  // TODO: not sure if we can parallize this
+  // Is it possible for more than 1 edge of a vertex to collapse?
   for (int edge = 0; edge < nr_edges; ++edge)
   {
     if (edge_collapse[edge])
@@ -127,14 +130,13 @@ int ComputeFineToCoarseVertex(
   // *testout << "vertex_coarse before | after fillup:" << endl;
   static Timer Tf2cv_mapping("H1-AMG::ComputeFineToCoarseVertex::Mapping");
   Tf2cv_mapping.Start();
-  for (int vertex = 0; vertex < nv; ++vertex)
-  {
+  ParallelFor(nv, [&connected, &vertex_coarse] (int vertex) {
     // *testout << vertex << ":  " << vertex_coarse[vertex] << " | ";
     if (connected[vertex] != vertex) {
       vertex_coarse[vertex] = vertex_coarse[connected[vertex]];
     }
     // *testout << vertex_coarse[vertex] << endl;
-  }
+  });
   Tf2cv_mapping.Stop();
 
   return nr_coarse_vertices;
@@ -223,11 +225,11 @@ void ComputeCoarseWeightsEdges(
   weights_edges_coarse.SetSize(coarse_edge_to_vertices.Size());
   weights_edges_coarse = 0;
 
-  for (int i = 0; i < edge_to_vertices.Size(); i++) {
+  ParallelFor(edge_to_vertices.Size(), [&] (int i) {
     if (edge_coarse[i] != -1) {
       weights_edges_coarse[edge_coarse[i]] += weights_edges[i];
     }
-  }
+  });
 }
 
 
