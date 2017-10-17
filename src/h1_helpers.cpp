@@ -1,6 +1,7 @@
 #include <cassert>
 
 #include <ngstd.hpp>
+using namespace ngstd;
 
 #include "h1_helpers.hpp"
 
@@ -9,114 +10,6 @@
 
 namespace h1amg
 {
-
-void IterativeCollapse(
-    const ngstd::Array<INT<2>>& edge_to_vertices, const ngstd::Array<double>& edge_collapse_weight,
-    const ngstd::Array<double>& vertex_collapse_weight, shared_ptr<ngstd::BitArray> free_dofs,
-    ngstd::Array<bool>& edge_collapse, ngstd::Array<bool>& vertex_collapse)
-{
-  static Timer Titer_coll("H1-AMG::IterativeCollapse");
-  RegionTimer Riter_coll(Titer_coll);
-
-  assert(edge_to_vertices.Size() == edge_collapse_weight.Size());
-  int nr_vertices = vertex_collapse_weight.Size();
-  int nr_edges = edge_collapse_weight.Size();
-
-  ngstd::Array<int> vertex_to_edge(nr_vertices);
-  vertex_to_edge = -1;
-
-  edge_collapse.SetSize(nr_edges);
-  edge_collapse = false;
-  vertex_collapse.SetSize(nr_vertices);
-  vertex_collapse = false;
-
-  bool changed;
-  int unused = -1;
-  int ground = -2;
-
-  do {
-    changed = false;
-
-    for (int edge = 0; edge < nr_edges; ++edge) {
-      if (edge_collapse_weight[edge] > 0.1
-          &&
-          (!free_dofs || (   (*free_dofs)[edge_to_vertices[edge][0]]
-                          && (*free_dofs)[edge_to_vertices[edge][1]])))
-      {
-        if (vertex_to_edge[edge_to_vertices[edge][0]] == unused &&
-            vertex_to_edge[edge_to_vertices[edge][1]] == unused)
-        {
-          edge_collapse[edge] = true;
-          vertex_to_edge[edge_to_vertices[edge][0]] = edge;
-          vertex_to_edge[edge_to_vertices[edge][1]] = edge;
-          changed = true;
-        }
-
-        else {
-          for (int j = 0; j < 2; ++j) {
-            int vertex1 = edge_to_vertices[edge][j];
-            int vertex2 = edge_to_vertices[edge][1-j];
-
-            if (vertex_to_edge[vertex1] != unused &&
-                vertex_to_edge[vertex1] != ground &&
-                vertex_to_edge[vertex2] == unused &&
-                edge_collapse_weight[edge] >
-                edge_collapse_weight[vertex_to_edge[vertex1]])
-            {
-              int old_edge = vertex_to_edge[vertex1];
-              edge_collapse[edge] = true;
-              edge_collapse[old_edge] = false;
-
-              vertex_to_edge[edge_to_vertices[old_edge][0]] = unused;
-              vertex_to_edge[edge_to_vertices[old_edge][1]] = unused;
-              vertex_to_edge[vertex1] = edge;
-              vertex_to_edge[vertex2] = edge;
-
-              changed = true;
-              break;
-            }
-            else if (vertex_to_edge[vertex1] == ground &&
-                      vertex_to_edge[vertex2] == unused &&
-                      edge_collapse_weight[edge] >
-                      vertex_collapse_weight[vertex1])
-            {
-              vertex_collapse[vertex1] = false;
-              vertex_to_edge[vertex1] = edge;
-              vertex_to_edge[vertex2] = edge;
-              edge_collapse[edge] = true;
-              changed = true;
-              break;
-            }
-          }
-        }
-
-      }
-    }
-
-    for (int vertex = 0; vertex < nr_vertices; ++vertex) {
-      if (vertex_to_edge[vertex] == unused
-          && (vertex_collapse_weight[vertex] > 0.1 ||
-              (free_dofs && !(*free_dofs)[vertex])))
-      {
-        vertex_to_edge[vertex] = ground;
-        vertex_collapse[vertex] = true;
-        changed = true;
-      }
-      else if (vertex_to_edge[vertex] >= 0 &&
-                vertex_collapse_weight[vertex] >
-                edge_collapse_weight[vertex_to_edge[vertex]])
-      {
-        edge_collapse[vertex_to_edge[vertex]] = false;
-        vertex_to_edge[vertex] = ground;
-        vertex_collapse[vertex] = true;
-        changed = true;
-      }
-    }
-
-  }
-  while (changed);
-
-}
 
 void ComputeCollapseWeights(
     const ngstd::Array<INT<2>>& edge_to_vertices, const ngstd::Array<double>& weights_edges,
@@ -137,12 +30,18 @@ void ComputeCollapseWeights(
   vertex_collapse_weight.SetSize(nr_vertices);
   vertex_collapse_weight = 0.0;
 
+  // TODO: Try switching loops to avoid branch misprediction?
+  static Timer Tcweights_vertstr("H1-AMG::ComputeCollapseWeights::VertStrength");
+  Tcweights_vertstr.Start();
   for (int i = 0; i < nr_edges; ++i) {
     for (int j = 0; j < 2; ++j) {
       vertex_strength[edge_to_vertices[i][j]] += weights_edges[i];
     }
   }
+  Tcweights_vertstr.Stop();
 
+  static Timer Tcweights_vcollweight("H1-AMG::ComputeCollapseWeights::VertCollWeight");
+  Tcweights_vcollweight.Start();
   for (int i = 0; i < nr_vertices; ++i) {
     double current_weight = weights_vertices[i];
     vertex_strength[i] += current_weight;
@@ -152,8 +51,10 @@ void ComputeCollapseWeights(
     if (current_weight != 0.0)
       vertex_collapse_weight[i] = current_weight / vertex_strength[i];
   }
+  Tcweights_vcollweight.Stop();
 
-
+  static Timer Tcweights_ecollweight("H1-AMG::ComputeCollapseWeights::EdgeCollWeight");
+  Tcweights_ecollweight.Start();
   for (int i = 0; i < nr_edges; ++i) {
     double vstr1 = vertex_strength[edge_to_vertices[i][0]];
     double vstr2 = vertex_strength[edge_to_vertices[i][1]];
@@ -162,6 +63,7 @@ void ComputeCollapseWeights(
     // same as: weights_edges[i] / vstr1 + weights_edges[i] / vstr2
     edge_collapse_weight[i] = weights_edges[i] * (vstr1+vstr2) / (vstr1 * vstr2);
   }
+  Tcweights_ecollweight.Stop();
 }
 
 
@@ -181,9 +83,15 @@ int ComputeFineToCoarseVertex(
 
   vertex_coarse = -4;
 
-  for (int vertex = 0; vertex < nv; ++vertex)
+  static Timer Tf2cv_sc("H1-AMG::ComputeFineToCoarseVertex::SelfConnect");
+  Tf2cv_sc.Start();
+  for (int vertex = 0; vertex < nv; ++vertex) {
     connected[vertex] = vertex;
+  }
+  Tf2cv_sc.Stop();
 
+  static Timer Tf2cv_cc("H1-AMG::ComputeFineToCoarseVertex::CoarseConnection");
+  Tf2cv_cc.Start();
   for (int edge = 0; edge < nr_edges; ++edge)
   {
     if (edge_collapse[edge])
@@ -198,7 +106,10 @@ int ComputeFineToCoarseVertex(
       }
     }
   }
+  Tf2cv_cc.Stop();
 
+  static Timer Tf2cv_cntcoarse("H1-AMG::ComputeFineToCoarseVertex::CountCoarse");
+  Tf2cv_cntcoarse.Start();
   for (int vertex = 0; vertex < nv; ++vertex)
   {
     if (connected[vertex] == vertex)
@@ -211,16 +122,20 @@ int ComputeFineToCoarseVertex(
       }
     }
   }
+  Tf2cv_cntcoarse.Stop();
 
-  *testout << "vertex_coarse before | after fillup:" << endl;
+  // *testout << "vertex_coarse before | after fillup:" << endl;
+  static Timer Tf2cv_mapping("H1-AMG::ComputeFineToCoarseVertex::Mapping");
+  Tf2cv_mapping.Start();
   for (int vertex = 0; vertex < nv; ++vertex)
   {
-    *testout << vertex << ":  " << vertex_coarse[vertex] << " | ";
+    // *testout << vertex << ":  " << vertex_coarse[vertex] << " | ";
     if (connected[vertex] != vertex) {
       vertex_coarse[vertex] = vertex_coarse[connected[vertex]];
     }
-    *testout << vertex_coarse[vertex] << endl;
+    // *testout << vertex_coarse[vertex] << endl;
   }
+  Tf2cv_mapping.Stop();
 
   return nr_coarse_vertices;
 }
@@ -245,13 +160,14 @@ void ComputeFineToCoarseEdge(
   // compute fine edge to coarse edge map (edge_coarse)
   for (int edge = 0; edge < nr_edges; ++edge)
   {
-    int vertex1 = vertex_coarse[edge_to_vertices[edge][0]];
-    int vertex2 = vertex_coarse[edge_to_vertices[edge][1]];
+    auto verts = edge_to_vertices[edge];
+    int vertex1 = vertex_coarse[verts[0]];
+    int vertex2 = vertex_coarse[verts[1]];
 
     // only edges where both coarse vertices are different and don't
     // collapse to ground will be coarse edges
     if (vertex1 != -1 && vertex2 != -1 && vertex1 != vertex2) {
-      edge_coarse_table.Set (INT<2>(vertex1, vertex2).Sort(), -1);
+      edge_coarse_table.Set(INT<2>(vertex1, vertex2).Sort(), -1);
     }
   }
 
@@ -331,24 +247,30 @@ void ComputeCoarseWeightsVertices(
   weights_vertices_coarse.SetSize(nr_coarse_vertices);
   weights_vertices_coarse = 0;
 
+  static Timer Tcvweights_fvweight("H1-AMG::ComputeCoarseWeightsVertices::AddFVWeight");
+  Tcvweights_fvweight.Start();
   for (int fine_vertex = 0; fine_vertex < nr_vertices; ++fine_vertex) {
     int coarse_vertex = vertex_coarse[fine_vertex];
     if (coarse_vertex != -1) {
       weights_vertices_coarse[coarse_vertex] += weights_vertices[fine_vertex];
     }
   }
+  Tcvweights_fvweight.Stop();
 
+  static Timer Tcvweights_feweight("H1-AMG::ComputeCoarseWeightsVertices::AddFEWeight");
+  Tcvweights_feweight.Start();
   for (int fine_edge = 0; fine_edge < nr_edges; ++fine_edge) {
     for (int i = 0; i < 2; ++i) {
       int cvertex1 = vertex_coarse[ edge_to_vertices[fine_edge][i] ];
       int cvertex2 = vertex_coarse[ edge_to_vertices[fine_edge][1-i] ];
       if (cvertex1 == -1 && cvertex2 != -1) {
-        *testout << "edge " << fine_edge << " between cvert " << cvertex1
-                 << " and " << cvertex2 << endl;
+        // *testout << "edge " << fine_edge << " between cvert " << cvertex1
+        //          << " and " << cvertex2 << endl;
         weights_vertices_coarse[cvertex2] += weights_edges[fine_edge];
       }
     }
   }
+  Tcvweights_feweight.Stop();
 }
 
 }  // h1amg
