@@ -43,4 +43,4 @@ def test_h1_real():
         gfu.vec.data = solver * f.vec
 
     assert_greater(solver.GetSteps(), 0)
-    assert_less_equal(solver.GetSteps(), 7)
+    assert_less_equal(solver.GetSteps(), 4)

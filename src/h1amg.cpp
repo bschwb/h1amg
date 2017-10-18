@@ -34,7 +34,7 @@ H1AMG::H1AMG(shared_ptr<BilinearForm> a_bfa, const Flags& a_flags, const string 
   m_h1_options.level = int(flags.GetNumFlag("levels", 10));
   m_h1_options.variable_vcycle = flags.GetDefineFlag("variable_vcycle");
   m_h1_options.smoothed = flags.GetDefineFlag("smoothed");
-  m_h1_options.semi_smoothed = flags.GetDefineFlag("semi_smoothed");
+  m_h1_options.semi_smoothed = !flags.GetDefineFlag("not_semi_smoothed");
   m_h1_options.special_level = int(flags.GetNumFlag("special_level", 3));
 }
 
