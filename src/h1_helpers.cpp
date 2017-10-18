@@ -33,11 +33,11 @@ void ComputeCollapseWeights(
   // TODO: Try switching loops to avoid branch misprediction?
   static Timer Tcweights_vertstr("H1-AMG::ComputeCollapseWeights::VertStrength");
   Tcweights_vertstr.Start();
-  for (int i = 0; i < nr_edges; ++i) {
+  ParallelFor(nr_edges, [&] (int i) {
     for (int j = 0; j < 2; ++j) {
-      vertex_strength[edge_to_vertices[i][j]] += weights_edges[i];
+      AsAtomic(vertex_strength[edge_to_vertices[i][j]]) += weights_edges[i];
     }
-  }
+  });
   Tcweights_vertstr.Stop();
 
   static Timer Tcweights_vcollweight("H1-AMG::ComputeCollapseWeights::VertCollWeight");
@@ -95,20 +95,19 @@ int ComputeFineToCoarseVertex(
   Tf2cv_cc.Start();
   // TODO: not sure if we can parallize this
   // Is it possible for more than 1 edge of a vertex to collapse?
-  for (int edge = 0; edge < nr_edges; ++edge)
-  {
+  ParallelFor(nr_edges, [&](int edge) {
     if (edge_collapse[edge])
     {
       int vertex1 = edge_to_vertices[edge][0];
       int vertex2 = edge_to_vertices[edge][1];
       if (vertex2>vertex1) {
-        connected[vertex2] = vertex1;
+        AsAtomic(connected[vertex2]) = vertex1;
       }
       else {
-        connected[vertex1] = vertex2;
+        AsAtomic(connected[vertex1]) = vertex2;
       }
     }
-  }
+  });
   Tf2cv_cc.Stop();
 
   static Timer Tf2cv_cntcoarse("H1-AMG::ComputeFineToCoarseVertex::CountCoarse");
@@ -227,7 +226,7 @@ void ComputeCoarseWeightsEdges(
 
   ParallelFor(edge_to_vertices.Size(), [&] (int i) {
     if (edge_coarse[i] != -1) {
-      weights_edges_coarse[edge_coarse[i]] += weights_edges[i];
+      AsAtomic(weights_edges_coarse[edge_coarse[i]]) += weights_edges[i];
     }
   });
 }
@@ -251,27 +250,28 @@ void ComputeCoarseWeightsVertices(
 
   static Timer Tcvweights_fvweight("H1-AMG::ComputeCoarseWeightsVertices::AddFVWeight");
   Tcvweights_fvweight.Start();
-  for (int fine_vertex = 0; fine_vertex < nr_vertices; ++fine_vertex) {
+  // for (int fine_vertex = 0; fine_vertex < nr_vertices; ++fine_vertex) {
+  ParallelFor(nr_vertices, [&] (int fine_vertex) {
     int coarse_vertex = vertex_coarse[fine_vertex];
     if (coarse_vertex != -1) {
-      weights_vertices_coarse[coarse_vertex] += weights_vertices[fine_vertex];
+      AsAtomic(weights_vertices_coarse[coarse_vertex]) += weights_vertices[fine_vertex];
     }
-  }
+  });
   Tcvweights_fvweight.Stop();
 
   static Timer Tcvweights_feweight("H1-AMG::ComputeCoarseWeightsVertices::AddFEWeight");
   Tcvweights_feweight.Start();
-  for (int fine_edge = 0; fine_edge < nr_edges; ++fine_edge) {
+  ParallelFor(nr_edges, [&] (int fine_edge) {
     for (int i = 0; i < 2; ++i) {
       int cvertex1 = vertex_coarse[ edge_to_vertices[fine_edge][i] ];
       int cvertex2 = vertex_coarse[ edge_to_vertices[fine_edge][1-i] ];
       if (cvertex1 == -1 && cvertex2 != -1) {
         // *testout << "edge " << fine_edge << " between cvert " << cvertex1
         //          << " and " << cvertex2 << endl;
-        weights_vertices_coarse[cvertex2] += weights_edges[fine_edge];
+        AsAtomic(weights_vertices_coarse[cvertex2]) += weights_edges[fine_edge];
       }
     }
-  }
+  });
   Tcvweights_feweight.Stop();
 }
 
