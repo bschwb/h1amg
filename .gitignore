@@ -17,3 +17,9 @@ build/
 *.so
 
 __pycache__/
+
+# Latex
+*.aux
+*.log
+*.pdf
+*.out
