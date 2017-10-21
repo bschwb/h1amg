@@ -241,6 +241,9 @@ UPtrSMdbl H1SmoothedProl(
 
 Table<int> Coarse2FineVertexTable(const Array<int>& vertex_coarse, int ncv)
 {
+  static Timer Tsemi_c2fvt("H1SemiSmoothedProl - Coarse2FineVertexTable");
+  RegionTimer Rsemi_c2fvt(Tsemi_c2fvt);
+
   auto nv = vertex_coarse.Size();
 
   // two coarse vertex per fine vertex
@@ -256,13 +259,18 @@ Table<int> Coarse2FineVertexTable(const Array<int>& vertex_coarse, int ncv)
   }
 
   // invert mapping
+  static Timer Tsemi_invmap("H1SemiSmoothedProl - c2fvt - Invert Mapping");
+  Tsemi_invmap.Start();
   for (const auto k : Range(nv)) {
     if (vertex_coarse[k] != -1) {
       c2f[vertex_coarse[k]][(c2f[vertex_coarse[k]][0]==-1)?0:1] = k;
     }
   }
+  Tsemi_invmap.Stop();
 
   // sort entries
+  static Timer Tsemi_sort("H1SemiSmoothedProl - c2fvt - Sort Entries");
+  Tsemi_sort.Start();
   for (auto r : c2f) {
     if (r[0]>r[1]) {
       auto d = r[0];
@@ -270,6 +278,7 @@ Table<int> Coarse2FineVertexTable(const Array<int>& vertex_coarse, int ncv)
       r[1] = d;
     }
   }
+  Tsemi_sort.Stop();
 
   return c2f;
 }
@@ -279,9 +288,14 @@ Table<int> Coarse2FineVertexTable(const Array<int>& vertex_coarse, int ncv)
 // so rows and cols correspond to vertices and the entry is the edge number
 SparseMatrix<double> EdgeConnectivityMatrix(const Array<INT<2>>& e2v, int nv)
 {
+  static Timer Tsemi_edge_con("H1SemiSmoothedProl - EdgeConnectivityMatrix");
+  RegionTimer Rsemi_edge_con(Tsemi_edge_con);
   auto ne = e2v.Size();
 
   // count nr of connected edges of vertex
+  static Timer Tsemi_cnt_con("H1SemiSmoothedProl - edgeconmat- Cnt Connected edges");
+  Tsemi_cnt_con.Start();
+
   Array<int> econ_s(nv);
   econ_s = 0;
 
@@ -289,16 +303,22 @@ SparseMatrix<double> EdgeConnectivityMatrix(const Array<INT<2>>& e2v, int nv)
     econ_s[e2v[k][0]]++;
     econ_s[e2v[k][1]]++;
   }
+  Tsemi_cnt_con.Stop();
 
   // build the table for the connections
+  static Timer Tsemi_con_table("H1SemiSmoothedProl - edgeconmat - Connection table");
+  Tsemi_con_table.Start();
   Table<int> tab_econ(econ_s);
   econ_s = 0; // used again for counting!!!!
   for (auto k : Range(ne)) {
     tab_econ[e2v[k][0]][econ_s[e2v[k][0]]++] = k;
     tab_econ[e2v[k][1]][econ_s[e2v[k][1]]++] = k;
   }
+  Tsemi_con_table.Stop();
 
   // build the edge connection matrix
+  static Timer Tsemi_con_matrix("H1SemiSmoothedProl - edgeconmat - create matrix");
+  Tsemi_con_matrix.Start();
   SparseMatrix<double> econ(econ_s, nv);
   econ.AsVector() = -1;
   for (auto k:Range(nv)) {
@@ -322,8 +342,11 @@ SparseMatrix<double> EdgeConnectivityMatrix(const Array<INT<2>>& e2v, int nv)
       val[j] = tab_econ[k][indices[j]];
     }
   }
+  Tsemi_con_matrix.Stop();
 
   // Sanity checks
+  static Timer Tsemi_con_checks("H1SemiSmoothedProl - edgeconmat - Checks");
+  Tsemi_con_checks.Start();
   for (auto k : Range(econ.Height())) {
     auto vs = econ.GetRowValues(k);
     for (auto d : econ.GetRowIndices(k)) {
@@ -337,6 +360,7 @@ SparseMatrix<double> EdgeConnectivityMatrix(const Array<INT<2>>& e2v, int nv)
       }
     }
   }
+  Tsemi_con_checks.Stop();
 
   return econ;
 }
@@ -346,26 +370,34 @@ UPtrSMdbl H1SemiSmoothedProl(
     const Array<int>& vertex_coarse, int ncv, const Array<INT<2>>& e2v, const Array<double>& ew,
     bool complx)
 {
-  static Timer tt ("fictitious prolongation (single) - total");
+  static Timer Tsemi_smoothed("H1SemiSmoothedProl");
+  RegionTimer Rsemi_smoothed(Tsemi_smoothed);
 
   int nverts = vertex_coarse.Size();
   int nedges = e2v.Size();
 
   Array<int> twos(ncv);
   twos = 2;
+
+  static Timer Tsemi_c2fv("H1SemiSmoothedProl - Coarse2FineVertexTable");
+  Tsemi_c2fv.Start();
   Table<int> c2f(twos);
   for (auto r:c2f) {
     r = -1;
   }
+
   for (auto k:Range(nverts)) {
     if (vertex_coarse[k]!=-1) {
       c2f[vertex_coarse[k]][(c2f[vertex_coarse[k]][0]==-1)?0:1] = k;
     }
   }
+  Tsemi_c2fv.Stop();
 
   auto econ = EdgeConnectivityMatrix(e2v, nverts);
   const SparseMatrix<double> & cecon(econ);
 
+  static Timer Tsemi_graph_table("H1SemiSmoothedProl - Create graph laplace table");
+  Tsemi_graph_table.Start();
   TableCreator<int> create_graph(nverts);
   while (!create_graph.Done()) {
     for (auto dof_f : Range(nverts)) {
@@ -390,20 +422,29 @@ UPtrSMdbl H1SemiSmoothedProl(
     }
     create_graph++;
   }
-
   auto graph = create_graph.MoveTable();
+  Tsemi_graph_table.Stop();
+
+  static Timer Tsemi_nze_perow("H1SemiSmoothedProl - Cnt NZE");
+  Tsemi_nze_perow.Start();
   Array<int> nze_perow(nverts);
   for (auto k:Range(nverts)) {
     nze_perow[k] = graph[k].Size();
   }
+  Tsemi_nze_perow.Stop();
 
+  static Timer T_semi_allocate_sm("H1SemiSmoothedProl - Allocate SparseMatrix");
+  T_semi_allocate_sm.Start();
   UPtrSMdbl prol = nullptr;
   if (!complx) {
     prol = UPtrSMdbl(new SparseMatrix<double>(nze_perow, ncv));
   } else {
     prol = UPtrSMdbl(new SparseMatrix<double, Complex, Complex>(nze_perow, ncv));
   }
+  T_semi_allocate_sm.Stop();
 
+  static Timer T_semi_fill_mat("H1SemiSmoothedProl - Fill Matrix");
+  T_semi_fill_mat.Start();
   for (auto rnr : Range(nverts)) {
     auto d = prol->GetRowIndices(rnr);
     auto gr = graph[rnr];
@@ -411,7 +452,10 @@ UPtrSMdbl H1SemiSmoothedProl(
       d[k] = gr[k];
     }
   }
+  T_semi_fill_mat.Stop();
 
+  static Timer T_semi_jacobi_smooth("H1SemiSmoothedProl - Jacobi smoothing");
+  T_semi_jacobi_smooth.Start();
   Array<int> c2lc(ncv);
   c2lc = -1;
   for (auto dof_c : Range(ncv)) {
@@ -454,6 +498,7 @@ UPtrSMdbl H1SemiSmoothedProl(
       }
     }
   }
+  T_semi_jacobi_smooth.Stop();
 
   return std::move(prol);
 }
