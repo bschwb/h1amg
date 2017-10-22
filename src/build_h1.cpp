@@ -145,8 +145,8 @@ shared_ptr<H1AMG_Mat> BuildH1AMG(
     prol = H1SmoothedProl(
         vertex_coarse, nr_coarse_vertices, edge_to_vertices, weights_edges, sysmat->IsComplex());
   } else if (h1_options.semi_smoothed && level_diff % h1_options.special_level == 0) {
-    prol = H1SemiSmoothedProl(
-        vertex_coarse, nr_coarse_vertices, edge_to_vertices, weights_edges, sysmat->IsComplex());
+    auto triv_prol = CreateProlongation(vertex_coarse, nr_coarse_vertices, sysmat->IsComplex());
+    prol = CreateSmoothedProlongation(edge_to_vertices, weights_edges, nv, move(triv_prol));
   }
   else {
     prol = CreateProlongation(vertex_coarse, nr_coarse_vertices, sysmat->IsComplex());

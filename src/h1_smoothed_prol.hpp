@@ -13,9 +13,9 @@ UPtrSMdbl H1SmoothedProl(
     const ngstd::Array<int>& vertex_coarse, int ncv, const ngstd::Array<ngstd::INT<2>>& e2v,
     const ngstd::Array<double>& ew, bool complx=false);
 
-UPtrSMdbl H1SemiSmoothedProl(
-    const ngstd::Array<int>& vertex_coarse, int ncv, const ngstd::Array<INT<2>>& e2v,
-    const ngstd::Array<double>& ew, bool complx=false);
+UPtrSMdbl CreateSmoothedProlongation(
+    const ngstd::Array<ngstd::INT<2>>& e2v, const ngstd::Array<double>& eweights, int nv,
+    const UPtrSMdbl triv_prol);
 
 }  // h1amg
 

@@ -1,3 +1,4 @@
+#include <cassert>
 #include <memory>
 using namespace std;
 
@@ -365,142 +366,109 @@ SparseMatrix<double> EdgeConnectivityMatrix(const Array<INT<2>>& e2v, int nv)
   return econ;
 }
 
+UPtrSMdbl BuildOffDiagSubstitutionMatrix(
+    const Array<INT<2>>& e2v, const Array<double>& eweights, int nv);
 
-UPtrSMdbl H1SemiSmoothedProl(
-    const Array<int>& vertex_coarse, int ncv, const Array<INT<2>>& e2v, const Array<double>& ew,
-    bool complx)
+UPtrSMdbl CreateSmoothedProlongation(
+    const Array<INT<2>>& e2v, const Array<double>& eweights, int nv,
+    const UPtrSMdbl triv_prol)
 {
-  static Timer Tsemi_smoothed("H1SemiSmoothedProl");
-  RegionTimer Rsemi_smoothed(Tsemi_smoothed);
+  static Timer Tsmoothed("H1 Create Smoothed Prolongation");
+  RegionTimer Rsmoothed(Tsmoothed);
 
-  int nverts = vertex_coarse.Size();
-  int nedges = e2v.Size();
+  UPtrSMdbl subst = BuildOffDiagSubstitutionMatrix(e2v, eweights, nv);
+  cout << "Smoothed prol start" << endl;
 
-  Array<int> twos(ncv);
-  twos = 2;
-
-  static Timer Tsemi_c2fv("H1SemiSmoothedProl - Coarse2FineVertexTable");
-  Tsemi_c2fv.Start();
-  Table<int> c2f(twos);
-  for (auto r:c2f) {
-    r = -1;
-  }
-
-  for (auto k:Range(nverts)) {
-    if (vertex_coarse[k]!=-1) {
-      c2f[vertex_coarse[k]][(c2f[vertex_coarse[k]][0]==-1)?0:1] = k;
+  static Timer Tsmoothed_vwsum("H1 Create Smoothed Prol - Jacobi Mat");
+  Tsmoothed_vwsum.Start();
+  double avg = 0.5;
+  ParallelFor (nv, [&] (int vert) {
+    auto row_indices = subst->GetRowIndices(vert);
+    auto row_vals = subst->GetRowValues(vert);
+    double sum = 0.;
+    for (auto v : row_vals) {
+      sum += v;
     }
-  }
-  Tsemi_c2fv.Stop();
-
-  auto econ = EdgeConnectivityMatrix(e2v, nverts);
-  const SparseMatrix<double> & cecon(econ);
-
-  static Timer Tsemi_graph_table("H1SemiSmoothedProl - Create graph laplace table");
-  Tsemi_graph_table.Start();
-  TableCreator<int> create_graph(nverts);
-  while (!create_graph.Done()) {
-    for (auto dof_f : Range(nverts)) {
-      if (vertex_coarse[dof_f] != -1) {
-        if (c2f[vertex_coarse[dof_f]][1] == -1) {
-          create_graph.Add(dof_f, vertex_coarse[dof_f]);
-        }
-        else {
-          auto row = econ.GetRowIndices(dof_f);
-          ArrayMem<int, 20> other_c;
-          for (auto d:row) {
-            if (vertex_coarse[d]!=-1 && !other_c.Contains(vertex_coarse[d])) {
-              other_c.Append(vertex_coarse[d]);
-            }
-          }
-          QuickSort(other_c);
-          for (auto d:other_c) {
-            create_graph.Add(dof_f, d);
-          }
-        }
-      }
+    for (auto i : row_indices) {
+      // minus sign is in sum because we summed over negatives
+      (*subst)(vert, i) *= avg/sum;
     }
-    create_graph++;
-  }
-  auto graph = create_graph.MoveTable();
-  Tsemi_graph_table.Stop();
+    (*subst)(vert, vert) += 1. - avg;
+  });
+  Tsmoothed_vwsum.Stop();
 
-  static Timer Tsemi_nze_perow("H1SemiSmoothedProl - Cnt NZE");
-  Tsemi_nze_perow.Start();
-  Array<int> nze_perow(nverts);
-  for (auto k:Range(nverts)) {
-    nze_perow[k] = graph[k].Size();
-  }
-  Tsemi_nze_perow.Stop();
+  assert(subst->Width() == triv_prol->Height());
+  UPtrSMdbl smoothed_prol =
+    UPtrSMdbl(static_cast<SparseMatrixTM<double>*>(MatMult(*subst, *triv_prol)));
 
-  static Timer T_semi_allocate_sm("H1SemiSmoothedProl - Allocate SparseMatrix");
-  T_semi_allocate_sm.Start();
-  UPtrSMdbl prol = nullptr;
-  if (!complx) {
-    prol = UPtrSMdbl(new SparseMatrix<double>(nze_perow, ncv));
-  } else {
-    prol = UPtrSMdbl(new SparseMatrix<double, Complex, Complex>(nze_perow, ncv));
-  }
-  T_semi_allocate_sm.Stop();
+  return std::move(smoothed_prol);
+}
 
-  static Timer T_semi_fill_mat("H1SemiSmoothedProl - Fill Matrix");
-  T_semi_fill_mat.Start();
-  for (auto rnr : Range(nverts)) {
-    auto d = prol->GetRowIndices(rnr);
-    auto gr = graph[rnr];
-    for (auto k : Range(gr.Size())) {
-      d[k] = gr[k];
+UPtrSMdbl BuildOffDiagSubstitutionMatrix(
+  const Array<INT<2>>& e2v, const Array<double>& eweights, int nv)
+{
+  static Timer Tsubst("H1 Build Subst Matrix");
+  RegionTimer Rsubst(Tsubst);
+
+  auto ne = e2v.Size();
+
+  static Timer Tsubst_nze("H1 Build Subst Matrix - count nze");
+  Tsubst_nze.Start();
+  Array<int> nze(nv);
+  nze = 1;
+
+  for (auto edge : e2v) {
+    nze[edge[0]]++;
+    nze[edge[1]]++;
+  }
+  Tsubst_nze.Stop();
+
+  static Timer Tsubst_mem("H1 Build Subst Matrix - memory");
+  Tsubst_mem.Start();
+  auto subst = std::make_unique<ngla::SparseMatrix<double>>(nze, nv);
+  Tsubst_mem.Stop();
+
+  static Timer Tsubst_table("H1 Build Subst Matrix - build table");
+  Tsubst_table.Start();
+  TableCreator<pair<int, double>> creator(nv);
+  for (; !creator.Done(); creator++) {
+    ParallelFor(nv, [&] (auto vert) {
+        creator.Add(vert, make_pair<>(vert, 0));
+    });
+    ParallelFor(ne, [&] (auto edge) {
+        auto ew = eweights[edge];
+        auto v1 = e2v[edge][0];
+        auto v2 = e2v[edge][1];
+
+        creator.Add(v1, make_pair<>(v2, -ew));
+        creator.Add(v2, make_pair<>(v1, -ew));
+    });
+  }
+  auto table = creator.MoveTable();
+  Tsubst_table.Stop();
+
+  // row indices for sparse matrix need to be sorted
+  static Timer Tsubst_sort("H1 Build Subst Matrix - sort rows in table");
+  Tsubst_sort.Start();
+  ParallelFor(table.Size(), [&] (auto row) {
+    QuickSort(table[row]);
+  });
+  Tsubst_sort.Stop();
+
+  static Timer Tsubst_write("H1 Build Subst Matrix - write into matrix");
+  Tsubst_write.Start();
+  ParallelFor(table.Size(), [&] (auto row_i) {
+    auto row = table[row_i];
+    auto row_ind = subst->GetRowIndices(row_i);
+    auto row_vals = subst->GetRowValues(row_i);
+    for (int i = 0; i < row.Size(); ++i) {
+      row_ind[i] = row[i].first;
+      row_vals[i] = row[i].second;
     }
-  }
-  T_semi_fill_mat.Stop();
+  });
+  Tsubst_write.Stop();
 
-  static Timer T_semi_jacobi_smooth("H1SemiSmoothedProl - Jacobi smoothing");
-  T_semi_jacobi_smooth.Start();
-  Array<int> c2lc(ncv);
-  c2lc = -1;
-  for (auto dof_c : Range(ncv)) {
-    if (c2f[dof_c][1]==-1) {
-      prol->GetRowValues(c2f[dof_c][0])[0] = 1.0;
-    }
-    else {
-      for (auto l : Range(2)) {
-        auto dof_f = c2f[dof_c][l];
-        auto other_dof = c2f[dof_c][1-l];
-        double wt_other_dof = ew[(int)cecon(dof_f, other_dof)];
-        ArrayMem<int, 20> other_ds;
-        ArrayMem<double, 20> wts;
-        double s = wt_other_dof;
-        for (auto j : cecon.GetRowIndices(dof_f)) {
-          if (j != other_dof && vertex_coarse[j] != -1) {
-            other_ds.Append(j);
-            auto ed_wt = ew[(int)cecon(dof_f, j)];
-            wts.Append(ed_wt);
-            s += ed_wt;
-          }
-        }
-        for (auto k : Range(graph[dof_f].Size())) {
-          c2lc[graph[dof_f][k]] = k;
-        }
-
-        auto sinv = 1.0/s;
-        auto vals = prol->GetRowValues(dof_f);
-        vals = 0.0;
-        int indl = c2lc[dof_c];
-        vals[indl] += wt_other_dof;
-
-        for (auto k : Range(other_ds.Size())) {
-          vals[indl] += 0.5*wts[k];
-          vals[c2lc[vertex_coarse[other_ds[k]]]] += 0.5*wts[k];
-        }
-        for (auto k : Range(vals.Size())) {
-          vals[k] *= sinv;
-        }
-      }
-    }
-  }
-  T_semi_jacobi_smooth.Stop();
-
-  return std::move(prol);
+  return std::move(subst);
 }
 
 
