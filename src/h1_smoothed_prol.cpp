@@ -242,7 +242,7 @@ UPtrSMdbl H1SmoothedProl(
 
 Table<int> Coarse2FineVertexTable(const Array<int>& vertex_coarse, int ncv)
 {
-  static Timer Tsemi_c2fvt("H1SemiSmoothedProl - Coarse2FineVertexTable");
+  static Timer Tsemi_c2fvt("H1SmoothedProl - Coarse2FineVertexTable");
   RegionTimer Rsemi_c2fvt(Tsemi_c2fvt);
 
   auto nv = vertex_coarse.Size();
@@ -260,7 +260,7 @@ Table<int> Coarse2FineVertexTable(const Array<int>& vertex_coarse, int ncv)
   }
 
   // invert mapping
-  static Timer Tsemi_invmap("H1SemiSmoothedProl - c2fvt - Invert Mapping");
+  static Timer Tsemi_invmap("H1SmoothedProl - c2fvt - Invert Mapping");
   Tsemi_invmap.Start();
   for (const auto k : Range(nv)) {
     if (vertex_coarse[k] != -1) {
@@ -270,7 +270,7 @@ Table<int> Coarse2FineVertexTable(const Array<int>& vertex_coarse, int ncv)
   Tsemi_invmap.Stop();
 
   // sort entries
-  static Timer Tsemi_sort("H1SemiSmoothedProl - c2fvt - Sort Entries");
+  static Timer Tsemi_sort("H1SmoothedProl - c2fvt - Sort Entries");
   Tsemi_sort.Start();
   for (auto r : c2f) {
     if (r[0]>r[1]) {
@@ -289,12 +289,12 @@ Table<int> Coarse2FineVertexTable(const Array<int>& vertex_coarse, int ncv)
 // so rows and cols correspond to vertices and the entry is the edge number
 SparseMatrix<double> EdgeConnectivityMatrix(const Array<INT<2>>& e2v, int nv)
 {
-  static Timer Tsemi_edge_con("H1SemiSmoothedProl - EdgeConnectivityMatrix");
+  static Timer Tsemi_edge_con("H1SmoothedProl - EdgeConnectivityMatrix");
   RegionTimer Rsemi_edge_con(Tsemi_edge_con);
   auto ne = e2v.Size();
 
   // count nr of connected edges of vertex
-  static Timer Tsemi_cnt_con("H1SemiSmoothedProl - edgeconmat- Cnt Connected edges");
+  static Timer Tsemi_cnt_con("H1SmoothedProl - edgeconmat- Cnt Connected edges");
   Tsemi_cnt_con.Start();
 
   Array<int> econ_s(nv);
@@ -307,7 +307,7 @@ SparseMatrix<double> EdgeConnectivityMatrix(const Array<INT<2>>& e2v, int nv)
   Tsemi_cnt_con.Stop();
 
   // build the table for the connections
-  static Timer Tsemi_con_table("H1SemiSmoothedProl - edgeconmat - Connection table");
+  static Timer Tsemi_con_table("H1SmoothedProl - edgeconmat - Connection table");
   Tsemi_con_table.Start();
   Table<int> tab_econ(econ_s);
   econ_s = 0; // used again for counting!!!!
@@ -318,7 +318,7 @@ SparseMatrix<double> EdgeConnectivityMatrix(const Array<INT<2>>& e2v, int nv)
   Tsemi_con_table.Stop();
 
   // build the edge connection matrix
-  static Timer Tsemi_con_matrix("H1SemiSmoothedProl - edgeconmat - create matrix");
+  static Timer Tsemi_con_matrix("H1SmoothedProl - edgeconmat - create matrix");
   Tsemi_con_matrix.Start();
   SparseMatrix<double> econ(econ_s, nv);
   econ.AsVector() = -1;
@@ -346,7 +346,7 @@ SparseMatrix<double> EdgeConnectivityMatrix(const Array<INT<2>>& e2v, int nv)
   Tsemi_con_matrix.Stop();
 
   // Sanity checks
-  static Timer Tsemi_con_checks("H1SemiSmoothedProl - edgeconmat - Checks");
+  static Timer Tsemi_con_checks("H1SmoothedProl - edgeconmat - Checks");
   Tsemi_con_checks.Start();
   for (auto k : Range(econ.Height())) {
     auto vs = econ.GetRowValues(k);
@@ -379,8 +379,8 @@ UPtrSMdbl CreateSmoothedProlongation(
   UPtrSMdbl subst = BuildOffDiagSubstitutionMatrix(e2v, eweights, nv);
   cout << "Smoothed prol start" << endl;
 
-  static Timer Tsmoothed_vwsum("H1 Create Smoothed Prol - Jacobi Mat");
-  Tsmoothed_vwsum.Start();
+  static Timer Tsmoothed_jacobi("H1 Create Smoothed Prol - Jacobi Mat");
+  Tsmoothed_jacobi.Start();
   double avg = 0.5;
   ParallelFor (nv, [&] (int vert) {
     auto row_indices = subst->GetRowIndices(vert);
@@ -395,7 +395,7 @@ UPtrSMdbl CreateSmoothedProlongation(
     }
     (*subst)(vert, vert) += 1. - avg;
   });
-  Tsmoothed_vwsum.Stop();
+  Tsmoothed_jacobi.Stop();
 
   assert(subst->Width() == triv_prol->Height());
   UPtrSMdbl smoothed_prol =
@@ -415,12 +415,14 @@ UPtrSMdbl BuildOffDiagSubstitutionMatrix(
   static Timer Tsubst_nze("H1 Build Subst Matrix - count nze");
   Tsubst_nze.Start();
   Array<int> nze(nv);
-  nze = 1;
+  ParallelFor(nv, [&] (int vert) {
+    nze[vert] = 1;
+  });
 
-  for (auto edge : e2v) {
-    nze[edge[0]]++;
-    nze[edge[1]]++;
-  }
+  ParallelFor(ne, [&] (int edge) {
+    AsAtomic(nze[e2v[edge][0]])++;
+    AsAtomic(nze[e2v[edge][1]])++;
+  });
   Tsubst_nze.Stop();
 
   static Timer Tsubst_mem("H1 Build Subst Matrix - memory");
