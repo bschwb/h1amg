@@ -452,8 +452,12 @@ UPtrSMdbl BuildOffDiagSubstitutionMatrix(
   // row indices for sparse matrix need to be sorted
   static Timer Tsubst_sort("H1 Build Subst Matrix - sort rows in table");
   Tsubst_sort.Start();
+  auto less = [] (pair<int, double> lhs, pair<int, double> rhs) {
+    return lhs.first < rhs.first;
+  };
+
   ParallelFor(table.Size(), [&] (auto row) {
-    QuickSort(table[row]);
+    QuickSort(table[row], less);
   });
   Tsubst_sort.Stop();
 
