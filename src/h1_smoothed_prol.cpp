@@ -423,6 +423,13 @@ UPtrSMdbl BuildOffDiagSubstitutionMatrix(
     AsAtomic(nze[e2v[edge][0]])++;
     AsAtomic(nze[e2v[edge][1]])++;
   });
+
+  // TODO: Check for 2d or 3d problem to decide maximum number of nze per row.
+  // 1 entry for the corresponding coarse vertex plus 2d: 3, 3d: 4
+  int max_nze_per_row = 5;  // use this for 3d. 4 + 1
+  ParallelFor(nv, [&] (int vert) {
+      nze[vert] = min(nze[vert], max_nze_per_row);
+  });
   Tsubst_nze.Stop();
 
   static Timer Tsubst_mem("H1 Build Subst Matrix - memory");
@@ -452,24 +459,34 @@ UPtrSMdbl BuildOffDiagSubstitutionMatrix(
   // row indices for sparse matrix need to be sorted
   static Timer Tsubst_sort("H1 Build Subst Matrix - sort rows in table");
   Tsubst_sort.Start();
-  auto less = [] (pair<int, double> lhs, pair<int, double> rhs) {
-    return lhs.first < rhs.first;
+  auto less_second = [] (pair<int, double> lhs, pair<int, double> rhs) {
+    return lhs.second < rhs.second;
   };
-
   ParallelFor(table.Size(), [&] (auto row) {
-    QuickSort(table[row], less);
+    QuickSort(table[row], less_second);
   });
   Tsubst_sort.Stop();
 
   static Timer Tsubst_write("H1 Build Subst Matrix - write into matrix");
   Tsubst_write.Start();
+  auto less_first = [] (pair<int, double> lhs, pair<int, double> rhs) {
+    return lhs.first < rhs.first;
+  };
   ParallelFor(table.Size(), [&] (auto row_i) {
     auto row = table[row_i];
     auto row_ind = subst->GetRowIndices(row_i);
     auto row_vals = subst->GetRowValues(row_i);
-    for (int i = 0; i < row.Size(); ++i) {
-      row_ind[i] = row[i].first;
-      row_vals[i] = row[i].second;
+    ArrayMem<pair<int, double>, 5> new_row(row_ind.Size());
+    new_row[0].first = row_i;
+    new_row[0].second = 0;
+    for (int i = 1; i < new_row.Size(); ++i) {
+      new_row[i].first = row[i-1].first;
+      new_row[i].second = row[i-1].second;
+    }
+    QuickSort(new_row, less_first);
+    for (int i = 0; i < row_ind.Size(); ++i) {
+      row_ind[i] = new_row[i].first;
+      row_vals[i] = new_row[i].second;
     }
   });
   Tsubst_write.Stop();
