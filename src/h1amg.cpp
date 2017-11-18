@@ -58,9 +58,13 @@ void H1AMG::FinalizeLevel(const BaseMatrix* mat)
 
   static Timer Tcnt_edges("H1-AMG::FinalizeLevel::CountEdges");
   Tcnt_edges.Start();
+  /*
   int cnt = 0;
   for (auto key_val: dof_pair_weights)
   { ++cnt; }
+  cout << "cnt " << cnt << " =?= " << par_dof_pair_weights.Used() << endl;
+  */
+  size_t cnt = par_dof_pair_weights.Used();
   Tcnt_edges.Stop();
 
   static Timer Tcreate_e2v("H1-AMG::FinalizeLevel::CreateE2VMapping");
@@ -69,11 +73,25 @@ void H1AMG::FinalizeLevel(const BaseMatrix* mat)
   Array<INT<2> > edge_to_vertices (cnt);
   int i = 0;
 
+  /*
   for (auto key_val: dof_pair_weights) {
     weights[i] = key_val.second;
     edge_to_vertices[i] = key_val.first;
     ++i;
   }
+  */
+
+  
+  par_dof_pair_weights.Iterate
+    ( [&weights,&edge_to_vertices,&i] (INT<2> key, double weight)
+      {
+        weights[i] = weight;
+        edge_to_vertices[i] = key;
+        ++i;
+      } );
+      
+
+  
   Tcreate_e2v.Stop();
 
   amg_matrix = BuildH1AMG(
@@ -142,11 +160,13 @@ void H1AMG::AddElementMatrixCommon(
 
           INT<2> i2(first_dof, second_dof);
           auto hash = HashValue(i2, dof_pair_weights.Size());
+          /*
           {
             ThreadRegionTimer reg(addelmat2,tid);            
             lock_guard<mutex> guard(m_hashlocks[hash]);
             dof_pair_weights[i2] += schur_entry;
           }
+          */
           {
             ThreadRegionTimer reg(addelmat3,tid);
             par_dof_pair_weights.Do (i2, [schur_entry] (auto & v) { v += schur_entry; });
