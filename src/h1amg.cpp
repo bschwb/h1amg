@@ -89,6 +89,15 @@ void H1AMG::FinalizeLevel(const BaseMatrix* mat)
 void H1AMG::AddElementMatrixCommon(
     FlatArray<int> dnums, const FlatMatrix<double>& elmat, LocalHeap& lh)
 {
+  static Timer addelmat("amg - addelmat",2);
+  static Timer addelmat1("amg - addelmat1",2);
+  static Timer addelmat2("amg - addelmat2",2);
+  static Timer addelmat3("amg - addelmat3",2);
+
+  int tid = TaskManager::GetThreadId();
+  ThreadRegionTimer reg(addelmat,tid);
+  NgProfiler::StartThreadTimer (addelmat1, tid);
+  
   auto ndof = elmat.Height();
   FlatMatrix<double> constant_elmat(ndof, lh);
   FlatMatrix<double> nullspace_elmat(ndof, lh);
@@ -103,6 +112,8 @@ void H1AMG::AddElementMatrixCommon(
 
   FlatMatrix<double> approx_elmat(ndof, lh);
   approx_elmat = 0;
+
+  NgProfiler::StopThreadTimer (addelmat1, tid);
 
   FlatMatrix<double> schur_complement(2, lh);
   BitArray used(ndof, lh);
@@ -132,8 +143,13 @@ void H1AMG::AddElementMatrixCommon(
           INT<2> i2(first_dof, second_dof);
           auto hash = HashValue(i2, dof_pair_weights.Size());
           {
+            ThreadRegionTimer reg(addelmat2,tid);            
             lock_guard<mutex> guard(m_hashlocks[hash]);
             dof_pair_weights[i2] += schur_entry;
+          }
+          {
+            ThreadRegionTimer reg(addelmat3,tid);
+            par_dof_pair_weights.Do (i2, [schur_entry] (auto & v) { v += schur_entry; });
           }
         }
         else {

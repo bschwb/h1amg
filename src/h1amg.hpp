@@ -21,6 +21,7 @@ private:
 
   size_t m_ndof;
   ngstd::HashTable<INT<2>,double> dof_pair_weights;
+  ngstd::ParallelHashTable<INT<2>,double> par_dof_pair_weights;
   ngstd::Array<double> weights_vertices;
 
   ngstd::Array<std::mutex> m_hashlocks;
