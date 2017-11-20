@@ -200,16 +200,35 @@ void ComputeFineToCoarseEdge(
       edge_coarse_table.SetData (i, cnt++);
   */
 
+  /*
   int cnt = 0;
   edge_coarse_table.Iterate
     ( [&cnt] (INT<2> key, int & val)
       {
         val = cnt++;
       });
+  */
+  Array<int> prefixsums(edge_coarse_table.NumBuckets());
+  size_t sum = 0;
+  for (size_t i = 0; i < edge_coarse_table.NumBuckets(); i++)
+    {
+      prefixsums[i] = sum;
+      sum += edge_coarse_table.Used(i);
+    }
+  coarse_edge_to_vertices.SetSize(sum);
+  ParallelFor (edge_coarse_table.NumBuckets(),
+               [&] (size_t nr)
+               {
+                 int cnt = prefixsums[nr];
+                 edge_coarse_table.Iterate
+                   (nr, [&cnt] (INT<2> key, int & val)
+                    {
+                      val = cnt++;
+                    });
+               });
 
   t2a.Stop();
 
-  coarse_edge_to_vertices.SetSize(cnt);
 
   // compute coarse edge to vertex mapping to user for next recursive
   // coarsening
