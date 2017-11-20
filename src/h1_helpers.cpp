@@ -268,8 +268,11 @@ void ComputeFineToCoarseEdge(
       edge_coarse_table.Do(INT<2>(vertex1, vertex2).Sort(), [&getval] (int val) { getval = val; });
       edge_coarse[edge] = getval;
       */
+      /*
       edge_coarse[edge] =
         edge_coarse_table.Do(INT<2>(vertex1, vertex2).Sort(), [] (int val) { return val; });
+      */
+      edge_coarse[edge] = edge_coarse_table.Get(INT<2>(vertex1, vertex2).Sort());
     }
     else {
       edge_coarse[edge] = -1;
@@ -277,6 +280,27 @@ void ComputeFineToCoarseEdge(
   });
   // cout << "edge_coarse = " << edge_coarse << endl;
   t3.Stop();
+
+  // find costs:
+  /*
+  for (size_t i = 0; i < edge_coarse_table.NumBuckets(); i++)
+    cout << i << ": " << edge_coarse_table.Used(i) << "/" <<  edge_coarse_table.BucketSize(i) << endl;
+  
+  size_t costs = 0;
+  size_t used = 0;
+  for (size_t edge = 0; edge < nr_edges; edge++)
+  {
+    int vertex1 = vertex_coarse[ edge_to_vertices[edge][0] ];
+    int vertex2 = vertex_coarse[ edge_to_vertices[edge][1] ];
+    if (vertex1 != -1 && vertex2 != -1 && vertex1 != vertex2) {
+      {
+        costs += edge_coarse_table.GetCosts(INT<2>(vertex1, vertex2).Sort());
+        used++;
+      }
+    }
+  }
+  cout << "avg hashing costs = " << double(costs)/used << endl;
+  */
 }
 
 void ComputeCoarseWeightsEdges(
