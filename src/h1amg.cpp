@@ -95,7 +95,8 @@ void H1AMG::FinalizeLevel(const BaseMatrix* mat)
   Tcreate_e2v.Stop();
 
   amg_matrix = BuildH1AMG(
-      dynamic_cast<const BaseSparseMatrix*>(mat), edge_to_vertices, weights, weights_vertices,
+      dynamic_pointer_cast<SparseMatrixTM<double>> (const_cast<BaseMatrix*>(mat)->shared_from_this()),
+      edge_to_vertices, weights, weights_vertices,
       freedofs, m_h1_options);
 
   cout << "matrices done" << endl;

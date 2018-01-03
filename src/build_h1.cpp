@@ -17,11 +17,12 @@ namespace h1amg
 {
 
 using UPtrSMdbl = unique_ptr<SparseMatrixTM<double>>;
+using SPtrSMdbl = shared_ptr<SparseMatrixTM<double>>;
 
 UPtrSMdbl CreateProlongation(const Array<int>& vertex_coarse, int ncv, bool complx);
 
 shared_ptr<H1AMG_Mat> BuildH1AMG(
-    const BaseSparseMatrix* sysmat, const Array<INT<2>>& edge_to_vertices,
+    SPtrSMdbl sysmat, const Array<INT<2>>& edge_to_vertices,
     const Array<double>& weights_edges, const Array<double>& weights_vertices,
     shared_ptr<BitArray> free_dofs, const H1Options& h1_options)
 {
@@ -146,7 +147,7 @@ shared_ptr<H1AMG_Mat> BuildH1AMG(
   auto bjacobi = sysmat->CreateBlockJacobiPrecond(blocks, 0, 1, free_dofs);
   Tblock_table.Stop();
 
-  UPtrSMdbl prol;
+  SPtrSMdbl prol;
   int level_diff = h1_options.maxlevel - h1_options.level;
   if (h1_options.smoothed && level_diff % h1_options.special_level == 0) {
     prol = H1SmoothedProl(
@@ -162,7 +163,7 @@ shared_ptr<H1AMG_Mat> BuildH1AMG(
   // build coarse mat
   static Timer Trestrict_sysmat("H1-AMG::RestrictSysmat");
   Trestrict_sysmat.Start();
-  auto coarsemat = sysmat->Restrict(*prol);
+  auto coarsemat = dynamic_pointer_cast<SparseMatrixTM<double>>(sysmat->Restrict(*prol));
   Trestrict_sysmat.Stop();
 
   cout << IM(5) << "H1 level " << h1_options.level

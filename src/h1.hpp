@@ -12,6 +12,7 @@ namespace h1amg
 
 using SPtrBJacobi = std::shared_ptr<ngla::BaseBlockJacobiPrecond>;
 using UPtrSMdbl = std::unique_ptr<ngla::SparseMatrixTM<double>>;
+using SPtrSMdbl = std::shared_ptr<ngla::SparseMatrixTM<double>>;
 
 // Provides a matrix which acts as an AMG preconditioner for H1 problems of
 // order 1.
@@ -23,8 +24,8 @@ public:
   //                * height of a_prolongation is the same as width of a_system
   //                  and width of a_prolongation is smaller
   H1AMG_Mat(
-      const ngla::BaseSparseMatrix* a_system, SPtrBJacobi a_bjacobi,
-      UPtrSMdbl a_prolongation, const int a_smoother_its);
+            shared_ptr<ngla::BaseSparseMatrix> a_system, SPtrBJacobi a_bjacobi,
+            SPtrSMdbl a_prolongation, const int a_smoother_its);
 
   virtual ~H1AMG_Mat() override
   { }
@@ -51,13 +52,13 @@ public:
   { return m_system->CreateVector(); }
 
 private:
-  const ngla::BaseSparseMatrix* m_system = nullptr;
+  shared_ptr<ngla::BaseSparseMatrix> m_system = nullptr;
   std::shared_ptr<ngla::BaseSparseMatrix> m_cmat = nullptr;
 
   SPtrBJacobi m_bjacobi = nullptr;
 
-  UPtrSMdbl m_prolongation = nullptr;
-  UPtrSMdbl m_trans_prolongation = nullptr;
+  SPtrSMdbl m_prolongation = nullptr;
+  SPtrSMdbl m_trans_prolongation = nullptr;
   std::shared_ptr<ngla::BaseMatrix> m_recursive = nullptr;
 
   const int m_smoother_its;

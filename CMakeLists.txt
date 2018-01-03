@@ -3,7 +3,7 @@ project(h1amg CXX)
 
 set(NETGEN_BASE_DIR $ENV{NETGENDIR}/.. CACHE PATH "Netgen install dir")
 
-find_package(NGSolve CONFIG HINTS ${NETGEN_BASE_DIR})
+find_package(NGSolve CONFIG HINTS ${NETGEN_BASE_DIR} /Applications/Netgen.app/Contents/Resources/CMake)
 
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)

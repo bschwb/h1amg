@@ -16,7 +16,7 @@ Table<int> Coarse2FineVertexTable(const Array<int>& vertex_coarse, int ncv);
 SparseMatrix<double> EdgeConnectivityMatrix(const Array<INT<2>>& e2v, int nv);
 
 // Build matrix graph before computing elmats
-UPtrSMdbl H1SmoothedProl(
+SPtrSMdbl H1SmoothedProl(
     const Array<int>& vertex_coarse, int ncv, const Array<INT<2>>& e2v, const Array<double>& ew,
     bool complx)
 {
@@ -369,7 +369,7 @@ SparseMatrix<double> EdgeConnectivityMatrix(const Array<INT<2>>& e2v, int nv)
 UPtrSMdbl BuildOffDiagSubstitutionMatrix(
     const Array<INT<2>>& e2v, const Array<double>& eweights, int nv);
 
-UPtrSMdbl CreateSmoothedProlongation(
+SPtrSMdbl CreateSmoothedProlongation(
     const Array<INT<2>>& e2v, const Array<double>& eweights, int nv,
     const UPtrSMdbl triv_prol)
 {
@@ -398,9 +398,8 @@ UPtrSMdbl CreateSmoothedProlongation(
   Tsmoothed_jacobi.Stop();
 
   assert(subst->Width() == triv_prol->Height());
-  UPtrSMdbl smoothed_prol =
-    UPtrSMdbl(static_cast<SparseMatrixTM<double>*>(MatMult(*subst, *triv_prol)));
-
+  SPtrSMdbl smoothed_prol = MatMult(*subst, *triv_prol);
+  
   return std::move(smoothed_prol);
 }
 

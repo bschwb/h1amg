@@ -8,12 +8,13 @@ namespace h1amg
 {
 
 using UPtrSMdbl = std::unique_ptr<ngla::SparseMatrixTM<double>>;
+using SPtrSMdbl = std::shared_ptr<ngla::SparseMatrixTM<double>>;
 
-UPtrSMdbl H1SmoothedProl(
+SPtrSMdbl H1SmoothedProl(
     const ngstd::Array<int>& vertex_coarse, int ncv, const ngstd::Array<ngstd::INT<2>>& e2v,
     const ngstd::Array<double>& ew, bool complx=false);
 
-UPtrSMdbl CreateSmoothedProlongation(
+SPtrSMdbl CreateSmoothedProlongation(
     const ngstd::Array<ngstd::INT<2>>& e2v, const ngstd::Array<double>& eweights, int nv,
     const UPtrSMdbl triv_prol);
 

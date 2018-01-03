@@ -15,11 +15,11 @@ namespace h1amg
 {
 
 H1AMG_Mat::H1AMG_Mat(
-    const BaseSparseMatrix* a_system, SPtrBJacobi a_bjacobi,
-    UPtrSMdbl a_prolongation, const int a_smoother_its)
+                     shared_ptr<BaseSparseMatrix> a_system, SPtrBJacobi a_bjacobi,
+                     SPtrSMdbl a_prolongation, const int a_smoother_its)
   : m_system(a_system), m_bjacobi(a_bjacobi),
-    m_prolongation(std::move(a_prolongation)),
-    m_trans_prolongation(UPtrSMdbl(TransposeMatrix(*m_prolongation))),
+    m_prolongation(a_prolongation),
+    m_trans_prolongation(TransposeMatrix(*m_prolongation)),
     m_smoother_its(a_smoother_its)
 {
   if(!m_system) {
