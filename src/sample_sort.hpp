@@ -96,12 +96,29 @@ void SampleSortI(FlatArray<double> data, FlatArray<int> index)
     });
   }
   */
+  /*
   for (; !buckets_creator.Done(); buckets_creator++) {
     ParallelFor (n, [&] (auto i)
                  {
                    buckets_creator.Add (bucket_of_ind[i], i);
                  });
   }
+  */
+
+  for (; !buckets_creator.Done(); buckets_creator++) {
+    ParallelForRange (n, [&] (IntRange r)
+                      {
+                        ngstd::TableCreator<int> mycreator(nr_buckets);
+                        for (; !mycreator.Done(); mycreator++)                      
+                          for (auto i : r)
+                            mycreator.Add (bucket_of_ind[i], i);
+
+                        auto mytab = mycreator.MoveTable();
+                        for (auto i : Range(nr_buckets))
+                          buckets_creator.Add (i, mytab[i]);
+                      });
+  }
+  
   auto table = buckets_creator.MoveTable();
   T3_2.Stop();
   T3.Stop();
