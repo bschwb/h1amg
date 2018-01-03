@@ -85,6 +85,7 @@ void SampleSortI(FlatArray<double> data, FlatArray<int> index)
   static Timer T3_2("Sample Sort - inverse index bucket map");
   T3_2.Start();
   ngstd::TableCreator<int> buckets_creator(nr_buckets);
+  /*
   for (; !buckets_creator.Done(); buckets_creator++) {
     ParallelFor(nr_buckets, [&] (auto bucket) {
       for (auto i : Range(n)) {
@@ -93,6 +94,13 @@ void SampleSortI(FlatArray<double> data, FlatArray<int> index)
         }
       }
     });
+  }
+  */
+  for (; !buckets_creator.Done(); buckets_creator++) {
+    ParallelFor (n, [&] (auto i)
+                 {
+                   buckets_creator.Add (bucket_of_ind[i], i);
+                 });
   }
   auto table = buckets_creator.MoveTable();
   T3_2.Stop();
@@ -115,6 +123,11 @@ void SampleSortI(FlatArray<double> data, FlatArray<int> index)
     start = end;
   }
   T5.Stop();
+  /*
+  for (size_t i = 0; i < n-1; i++)
+    if (data[index[i]] > data[index[i+1]])
+      cout << "sort wrong" << endl;
+  */
 }
 
 
