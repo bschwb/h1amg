@@ -17,6 +17,31 @@ using namespace ngcomp;
 namespace h1amg
 {
 
+  template <typename THASH, typename T, typename FUNC>
+  void ParallelIterate (const ngstd::ParallelHashTable<THASH,T> & hashtable, FUNC func)
+  {
+    Array<size_t> base(hashtable.NumBuckets());
+    size_t sum = 0;
+    for (size_t i = 0; i < hashtable.NumBuckets(); i++)
+      {
+        base[i] = sum;
+        sum += hashtable.Used(i); 
+      }
+    ParallelFor(hashtable.NumBuckets(),
+                [&] (size_t nr)
+                {
+                  size_t cnt = base[nr];
+                  hashtable.Iterate(nr,
+                                    [&cnt, func] (THASH key, T val)
+                                    {
+                                      func(cnt, key, val);
+                                      cnt++;
+                                    });
+                });
+  }
+
+
+
 H1AMG::H1AMG(const PDE& a_pde, const Flags& a_flags, const string a_name)
   : H1AMG(a_pde.GetBilinearForm(a_flags.GetStringFlag("bilinearform", "")), a_flags, a_name)
 { }
@@ -71,9 +96,9 @@ void H1AMG::FinalizeLevel(const BaseMatrix* mat)
   Tcreate_e2v.Start();
   Array<double> weights (cnt);
   Array<INT<2> > edge_to_vertices (cnt);
-  int i = 0;
 
   /*
+  int i = 0;
   for (auto key_val: dof_pair_weights) {
     weights[i] = key_val.second;
     edge_to_vertices[i] = key_val.first;
@@ -81,7 +106,14 @@ void H1AMG::FinalizeLevel(const BaseMatrix* mat)
   }
   */
 
-  
+  ParallelIterate (par_dof_pair_weights,
+                   [&weights,&edge_to_vertices] (size_t i, INT<2> key, double weight)
+                   {
+                     weights[i] = weight;
+                     edge_to_vertices[i] = key;
+                   });
+  /*
+  int i = 0;
   par_dof_pair_weights.Iterate
     ( [&weights,&edge_to_vertices,&i] (INT<2> key, double weight)
       {
@@ -89,7 +121,7 @@ void H1AMG::FinalizeLevel(const BaseMatrix* mat)
         edge_to_vertices[i] = key;
         ++i;
       } );
-      
+  */  
 
   
   Tcreate_e2v.Stop();
