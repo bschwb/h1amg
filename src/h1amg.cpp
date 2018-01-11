@@ -5,7 +5,7 @@ using namespace ngbla;
 #include <comp.hpp>
 using namespace ngcomp;
 
-#include "complex_mat.hpp"
+// #include "complex_mat.hpp"
 
 #include "h1.hpp"
 #include "build_h1.hpp"
@@ -16,30 +16,6 @@ using namespace ngcomp;
 
 namespace h1amg
 {
-
-  template <typename THASH, typename T, typename FUNC>
-  void ParallelIterate (const ngstd::ParallelHashTable<THASH,T> & hashtable, FUNC func)
-  {
-    Array<size_t> base(hashtable.NumBuckets());
-    size_t sum = 0;
-    for (size_t i = 0; i < hashtable.NumBuckets(); i++)
-      {
-        base[i] = sum;
-        sum += hashtable.Used(i); 
-      }
-    ParallelFor(hashtable.NumBuckets(),
-                [&] (size_t nr)
-                {
-                  size_t cnt = base[nr];
-                  hashtable.Iterate(nr,
-                                    [&cnt, func] (THASH key, T val)
-                                    {
-                                      func(cnt, key, val);
-                                      cnt++;
-                                    });
-                });
-  }
-
 
 
 H1AMG::H1AMG(const PDE& a_pde, const Flags& a_flags, const string a_name)
@@ -69,7 +45,7 @@ void H1AMG::InitLevel(shared_ptr<BitArray> afreedofs)
   RegionTimer Rinit_level(Tinit_level);
   *testout << "initlevel amg" << endl;
   freedofs = afreedofs;
-  int nr_dofs = freedofs->Size(); //bfa->GetFESpace()->GetNDof();
+  int nr_dofs = freedofs->Size(); 
   weights_vertices = Array<double>(nr_dofs);
   weights_vertices = 0;
 }
@@ -81,48 +57,19 @@ void H1AMG::FinalizeLevel(const BaseMatrix* mat)
 
   *testout << "finalize lvl  amg" << endl;
 
-  static Timer Tcnt_edges("H1-AMG::FinalizeLevel::CountEdges");
-  Tcnt_edges.Start();
-  /*
-  int cnt = 0;
-  for (auto key_val: dof_pair_weights)
-  { ++cnt; }
-  cout << "cnt " << cnt << " =?= " << par_dof_pair_weights.Used() << endl;
-  */
-  size_t cnt = par_dof_pair_weights.Used();
-  Tcnt_edges.Stop();
-
   static Timer Tcreate_e2v("H1-AMG::FinalizeLevel::CreateE2VMapping");
   Tcreate_e2v.Start();
+
+  size_t cnt = par_dof_pair_weights.Used();
   Array<double> weights (cnt);
   Array<INT<2> > edge_to_vertices (cnt);
 
-  /*
-  int i = 0;
-  for (auto key_val: dof_pair_weights) {
-    weights[i] = key_val.second;
-    edge_to_vertices[i] = key_val.first;
-    ++i;
-  }
-  */
-
-  ParallelIterate (par_dof_pair_weights,
-                   [&weights,&edge_to_vertices] (size_t i, INT<2> key, double weight)
-                   {
-                     weights[i] = weight;
-                     edge_to_vertices[i] = key;
-                   });
-  /*
-  int i = 0;
-  par_dof_pair_weights.Iterate
-    ( [&weights,&edge_to_vertices,&i] (INT<2> key, double weight)
-      {
-        weights[i] = weight;
-        edge_to_vertices[i] = key;
-        ++i;
-      } );
-  */  
-
+  par_dof_pair_weights.IterateParallel
+    ([&weights,&edge_to_vertices] (size_t i, INT<2> key, double weight)
+     {
+       weights[i] = weight;
+       edge_to_vertices[i] = key;
+     });
   
   Tcreate_e2v.Stop();
 
@@ -161,8 +108,8 @@ void H1AMG::AddElementMatrixCommon(
       weights_vertices[ dnums[i] ] += vertex_weight;
   }
 
-  FlatMatrix<double> approx_elmat(ndof, lh);
-  approx_elmat = 0;
+  // FlatMatrix<double> approx_elmat(ndof, lh);
+  // approx_elmat = 0;
 
   NgProfiler::StopThreadTimer (addelmat1, tid);
 
@@ -173,7 +120,7 @@ void H1AMG::AddElementMatrixCommon(
       auto first_dof = dnums[i];
       auto second_dof = dnums[j];
       if (first_dof < second_dof) {
-        schur_complement = 0;
+        // schur_complement = 0;
         used.Clear();
 
         // the schur-complement is calculated in respect to the two current
@@ -181,33 +128,20 @@ void H1AMG::AddElementMatrixCommon(
         used.Set(i);
         used.Set(j);
 
-        CalcSchurComplement(nullspace_elmat, schur_complement, used, lh);
-
-        auto schur_entry = schur_complement(0);
+        {
+          ThreadRegionTimer reg(addelmat2,tid);            
+          CalcSchurComplement(nullspace_elmat, schur_complement, used, lh);
+        }
+        double schur_entry = schur_complement(0);
 
         if (!std::isnan(schur_entry)) {
-          approx_elmat(i, i) += schur_entry;
-          approx_elmat(j, j) += schur_entry;
-          approx_elmat(i, j) -= schur_entry;
-          approx_elmat(j, i) -= schur_entry;
-
           INT<2> i2(first_dof, second_dof);
-          auto hash = HashValue(i2, dof_pair_weights.Size());
-          /*
-          {
-            ThreadRegionTimer reg(addelmat2,tid);            
-            lock_guard<mutex> guard(m_hashlocks[hash]);
-            dof_pair_weights[i2] += schur_entry;
-          }
-          */
-          {
-            ThreadRegionTimer reg(addelmat3,tid);
-            par_dof_pair_weights.Do (i2, [schur_entry] (auto & v) { v += schur_entry; });
-          }
+          // ThreadRegionTimer reg(addelmat3,tid);
+          par_dof_pair_weights.Do (i2, [schur_entry] (auto & v) { v += schur_entry; });
         }
         else {
           INT<2> i2(first_dof, second_dof);
-          dof_pair_weights[i2] += 0;
+          par_dof_pair_weights.Do (i2, [schur_entry] (auto & v) { v += 0.0; });          
         }
       }
     }
@@ -227,7 +161,9 @@ void H1AMG::AddElementMatrix(
     FlatArray<int> dnums, const FlatMatrix<Complex>& elmat, ElementId ei, LocalHeap& lh)
 {
   HeapReset hr(lh);
-  auto combined_elmat = AddedParts(elmat, lh);
+  // auto combined_elmat = AddedParts(elmat, lh);
+  FlatMatrix<double> combined_elmat(elmat.Height(), elmat.Width(), lh);
+  combined_elmat = Real(elmat)+Imag(elmat);
   AddElementMatrixCommon(dnums, combined_elmat, lh);
 }
 

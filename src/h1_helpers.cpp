@@ -178,7 +178,7 @@ void ComputeFineToCoarseEdge(
   // compute fine edge to coarse edge map (edge_coarse)
   // for (int edge = 0; edge < nr_edges; ++edge)
   ParallelFor (nr_edges, [&] (int edge)
-  {
+               {
     auto verts = edge_to_vertices[edge];
     int vertex1 = vertex_coarse[verts[0]];
     int vertex2 = vertex_coarse[verts[1]];
