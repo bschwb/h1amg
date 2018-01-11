@@ -130,11 +130,9 @@ int ComputeFineToCoarseVertex(
   static Timer Tf2cv_mapping("H1-AMG::ComputeFineToCoarseVertex::Mapping");
   Tf2cv_mapping.Start();
   ParallelFor(nv, [&connected, &vertex_coarse] (int vertex) {
-    // *testout << vertex << ":  " << vertex_coarse[vertex] << " | ";
     if (connected[vertex] != vertex) {
       vertex_coarse[vertex] = vertex_coarse[connected[vertex]];
     }
-    // *testout << vertex_coarse[vertex] << endl;
   });
   Tf2cv_mapping.Stop();
 
@@ -156,29 +154,12 @@ void ComputeFineToCoarseEdge(
   t1.Start();
   int nr_edges = edge_to_vertices.Size();
   edge_coarse.SetSize(nr_edges);
-  /*
-  ngstd::ClosedHashTable<INT<2>, int> edge_coarse_table(nr_edges);
-
-  // compute fine edge to coarse edge map (edge_coarse)
-  for (int edge = 0; edge < nr_edges; ++edge)
-  {
-    auto verts = edge_to_vertices[edge];
-    int vertex1 = vertex_coarse[verts[0]];
-    int vertex2 = vertex_coarse[verts[1]];
-
-    // only edges where both coarse vertices are different and don't
-    // collapse to ground will be coarse edges
-    if (vertex1 != -1 && vertex2 != -1 && vertex1 != vertex2) {
-      edge_coarse_table.Set(INT<2>(vertex1, vertex2).Sort(), -1);
-    }
-  }
-  */
 
   ngstd::ParallelHashTable<INT<2>, int> edge_coarse_table;
   // compute fine edge to coarse edge map (edge_coarse)
-  // for (int edge = 0; edge < nr_edges; ++edge)
-  ParallelFor (nr_edges, [&] (int edge)
-               {
+
+  ParallelFor (nr_edges, [&] (int edge) 
+    {
     auto verts = edge_to_vertices[edge];
     int vertex1 = vertex_coarse[verts[0]];
     int vertex2 = vertex_coarse[verts[1]];
@@ -193,21 +174,6 @@ void ComputeFineToCoarseEdge(
   t1.Stop();
   t2a.Start();
 
-  /*
-  int cnt = 0;
-  for (int i = 0; i < edge_coarse_table.Size(); ++i)
-    if (edge_coarse_table.UsedPos(i))
-      edge_coarse_table.SetData (i, cnt++);
-  */
-
-  /*
-  int cnt = 0;
-  edge_coarse_table.Iterate
-    ( [&cnt] (INT<2> key, int & val)
-      {
-        val = cnt++;
-      });
-  */
   Array<int> prefixsums(edge_coarse_table.NumBuckets());
   size_t sum = 0;
   for (size_t i = 0; i < edge_coarse_table.NumBuckets(); i++)
@@ -220,8 +186,8 @@ void ComputeFineToCoarseEdge(
                [&] (size_t nr)
                {
                  int cnt = prefixsums[nr];
-                 edge_coarse_table.Iterate
-                   (nr, [&cnt] (INT<2> key, int & val)
+                 edge_coarse_table.Bucket(nr).Iterate
+                   ([&cnt] (INT<2> key, int & val)
                     {
                       val = cnt++;
                     });
@@ -234,20 +200,11 @@ void ComputeFineToCoarseEdge(
   // coarsening
   t2.Start();
 
-  /*
-  ParallelFor(edge_coarse_table.Size(), [&] (int i)
-  {
-    if (edge_coarse_table.UsedPos(i)) {
-      auto both =  edge_coarse_table.GetBoth(i);
-      coarse_edge_to_vertices[both.second] = both.first;
-    }
-  });
-  */
   ParallelFor (edge_coarse_table.NumBuckets(),
                [&] (size_t nr)
                {               
-                 edge_coarse_table.Iterate
-                   (nr, [&coarse_edge_to_vertices] (INT<2> key, int val)
+                 edge_coarse_table.Bucket(nr).Iterate
+                   ([&coarse_edge_to_vertices] (INT<2> key, int val)
                     {
                       coarse_edge_to_vertices[val] = key;
                     });
@@ -256,22 +213,6 @@ void ComputeFineToCoarseEdge(
   t2.Stop();
 
   t3.Start();
-  /*
-  ParallelFor(nr_edges, [&] (int edge)
-  {
-    int vertex1 = vertex_coarse[ edge_to_vertices[edge][0] ];
-    int vertex2 = vertex_coarse[ edge_to_vertices[edge][1] ];
-
-    // only edges where both coarse vertices are different and don't
-    // collapse to ground will be coarse edges
-    if (vertex1 != -1 && vertex2 != -1 && vertex1 != vertex2) {
-      edge_coarse[edge] = edge_coarse_table.Get (INT<2>(vertex1, vertex2).Sort());
-    }
-    else {
-      edge_coarse[edge] = -1;
-    }
-  });
-  */
 
   ParallelFor(nr_edges, [&] (int edge)
   {
@@ -281,45 +222,14 @@ void ComputeFineToCoarseEdge(
     // only edges where both coarse vertices are different and don't
     // collapse to ground will be coarse edges
     if (vertex1 != -1 && vertex2 != -1 && vertex1 != vertex2) {
-      // edge_coarse[edge] = edge_coarse_table.Get (INT<2>(vertex1, vertex2).Sort());
-      /*
-      int getval = 0;
-      edge_coarse_table.Do(INT<2>(vertex1, vertex2).Sort(), [&getval] (int val) { getval = val; });
-      edge_coarse[edge] = getval;
-      */
-      /*
-      edge_coarse[edge] =
-        edge_coarse_table.Do(INT<2>(vertex1, vertex2).Sort(), [] (int val) { return val; });
-      */
       edge_coarse[edge] = edge_coarse_table.Get(INT<2>(vertex1, vertex2).Sort());
     }
     else {
       edge_coarse[edge] = -1;
     }
   });
-  // cout << "edge_coarse = " << edge_coarse << endl;
-  t3.Stop();
 
-  // find costs:
-  /*
-  for (size_t i = 0; i < edge_coarse_table.NumBuckets(); i++)
-    cout << i << ": " << edge_coarse_table.Used(i) << "/" <<  edge_coarse_table.BucketSize(i) << endl;
-  
-  size_t costs = 0;
-  size_t used = 0;
-  for (size_t edge = 0; edge < nr_edges; edge++)
-  {
-    int vertex1 = vertex_coarse[ edge_to_vertices[edge][0] ];
-    int vertex2 = vertex_coarse[ edge_to_vertices[edge][1] ];
-    if (vertex1 != -1 && vertex2 != -1 && vertex1 != vertex2) {
-      {
-        costs += edge_coarse_table.GetCosts(INT<2>(vertex1, vertex2).Sort());
-        used++;
-      }
-    }
-  }
-  cout << "avg hashing costs = " << double(costs)/used << endl;
-  */
+  t3.Stop();
 }
 
 void ComputeCoarseWeightsEdges(
@@ -359,7 +269,6 @@ void ComputeCoarseWeightsVertices(
 
   static Timer Tcvweights_fvweight("H1-AMG::ComputeCoarseWeightsVertices::AddFVWeight");
   Tcvweights_fvweight.Start();
-  // for (int fine_vertex = 0; fine_vertex < nr_vertices; ++fine_vertex) {
   ParallelFor(nr_vertices, [&] (int fine_vertex) {
     int coarse_vertex = vertex_coarse[fine_vertex];
     if (coarse_vertex != -1) {
