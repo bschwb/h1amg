@@ -45,18 +45,25 @@ namespace h1amg
                  });
     t_cntdep.Stop();    
 
-    
-    Array<int> ready(dag.Size());
+    atomic<size_t> num_ready(0), num_final(0);
+    ParallelForRange (cnt_dep.Size(), [&] (IntRange r)
+                      {
+                        size_t my_ready = 0, my_final = 0;
+                        for (size_t i : r)
+                          {
+                            if (cnt_dep[i] == 0) my_ready++;
+                            if (dag[i].Size() == 0) my_final++;
+                          }
+                        num_ready += my_ready;
+                        num_final += my_final;
+                      });
+
+    Array<int> ready(num_ready);
     ready.SetSize0();
-    int num_final = 0;
-
     for (int j : Range(cnt_dep))
-      {
-        if (cnt_dep[j] == 0) ready.Append(j);
-        if (dag[j].Size() == 0) num_final++;
-      }
+      if (cnt_dep[j] == 0) ready.Append(j);
 
-
+    
     if (!task_manager)
       {
         while (ready.Size())
@@ -77,9 +84,8 @@ namespace h1amg
         return;
       }
 
-    // atomic<int> cnt_final(0);
+    atomic<int> cnt_final(0);
     SharedLoop2 sl(Range(ready));
-    SharedLoop2 cnt_final(Range(num_final));
 			  
     task_manager -> CreateJob 
       ([&] (const TaskInfo & ti)
@@ -90,12 +96,9 @@ namespace h1amg
         for (int i : sl)
           queue.enqueue (ptoken, ready[i]);
 
-	auto mycnt_final = cnt_final.begin();
-	
-        // while (1)
-	while (mycnt_final != cnt_final.end())
+        while (1)
            {
-             // if (cnt_final >= num_final) break;
+             if (cnt_final >= num_final) break;
 
              int nr;
              if(!queue.try_dequeue_from_producer(ptoken, nr)) 
@@ -103,8 +106,7 @@ namespace h1amg
                  continue; 
              
              if (dag[nr].Size() == 0)
-	       ++mycnt_final;
-               // cnt_final++;
+               cnt_final++;
 
              func(nr);
 
