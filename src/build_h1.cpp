@@ -215,7 +215,7 @@ shared_ptr<H1AMG_Mat> BuildH1AMG(
   ParallelFor (v2e.Size(), [&] (size_t vnr)
                {
                  QuickSortI (edge_collapse_weight, v2e[vnr]);
-               });
+               }, TasksPerThread(5));
   
   // build edge dependency
   TableCreator<int> edge_dag_creator(ne);
@@ -225,7 +225,7 @@ shared_ptr<H1AMG_Mat> BuildH1AMG(
         auto vedges = v2e[vnr];
         for (int j = 0; j+1 < vedges.Size(); j++)
           edge_dag_creator.Add (vedges[j+1], vedges[j]);
-      });
+      }, TasksPerThread(5));
   Table<int> edge_dag = edge_dag_creator.MoveTable();
 
   RunParallelDependency (edge_dag,
