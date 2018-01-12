@@ -65,6 +65,7 @@ namespace h1amg
 
     
     if (!task_manager)
+      // if (true)
       {
         while (ready.Size())
           {
@@ -86,7 +87,7 @@ namespace h1amg
 
     atomic<int> cnt_final(0);
     SharedLoop2 sl(Range(ready));
-			  
+
     task_manager -> CreateJob 
       ([&] (const TaskInfo & ti)
        {
@@ -104,7 +105,9 @@ namespace h1amg
              if(!queue.try_dequeue_from_producer(ptoken, nr)) 
                if(!queue.try_dequeue(ctoken, nr))  
                  continue; 
-             
+
+	     // cnt_dep[nr]--;   // only for mem-sync
+	     
              if (dag[nr].Size() == 0)
                cnt_final++;
 
@@ -199,6 +202,20 @@ shared_ptr<H1AMG_Mat> BuildH1AMG(
   Tdist1sorted.Stop();
   */
 
+
+  Array<int> indices(ne);
+  ParallelFor (ne, [&] (size_t edge)
+               {
+                 indices[edge] = edge;
+               });
+
+  ngstd::SampleSortI(edge_collapse_weight, indices);
+  Array<int> invindices(ne);
+  ParallelFor (ne, [&] (size_t edge)
+               {
+                 invindices[indices[edge]] = edge;
+               });
+  
   
   static Timer Tdist1sorted("Dist1 Sorted Collapsing");
   Tdist1sorted.Start();
@@ -231,7 +248,8 @@ shared_ptr<H1AMG_Mat> BuildH1AMG(
 
   ParallelFor (v2e.Size(), [&] (size_t vnr)
                {
-                 QuickSortI (edge_collapse_weight, v2e[vnr]);
+		 // QuickSortI (edge_collapse_weight, v2e[vnr]);
+		 QuickSortI (invindices, v2e[vnr]);
                }, TasksPerThread(5));
   
   // build edge dependency
@@ -241,7 +259,7 @@ shared_ptr<H1AMG_Mat> BuildH1AMG(
       {
         auto vedges = v2e[vnr];
         for (int j = 0; j+1 < vedges.Size(); j++)
-          edge_dag_creator.Add (vedges[j+1], vedges[j]);
+	  edge_dag_creator.Add (vedges[j+1], vedges[j]);
       }, TasksPerThread(5));
   Table<int> edge_dag = edge_dag_creator.MoveTable();
 
