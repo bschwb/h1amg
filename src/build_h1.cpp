@@ -77,9 +77,10 @@ namespace h1amg
         return;
       }
 
-    atomic<int> cnt_final(0);
-    SharedLoop sl(Range(ready));
-
+    // atomic<int> cnt_final(0);
+    SharedLoop2 sl(Range(ready));
+    SharedLoop2 cnt_final(Range(num_final));
+			  
     task_manager -> CreateJob 
       ([&] (const TaskInfo & ti)
        {
@@ -89,9 +90,12 @@ namespace h1amg
         for (int i : sl)
           queue.enqueue (ptoken, ready[i]);
 
-        while (1)
+	auto mycnt_final = cnt_final.begin();
+	
+        // while (1)
+	while (mycnt_final != cnt_final.end())
            {
-             if (cnt_final >= num_final) break;
+             // if (cnt_final >= num_final) break;
 
              int nr;
              if(!queue.try_dequeue_from_producer(ptoken, nr)) 
@@ -99,7 +103,8 @@ namespace h1amg
                  continue; 
              
              if (dag[nr].Size() == 0)
-               cnt_final++;
+	       ++mycnt_final;
+               // cnt_final++;
 
              func(nr);
 
