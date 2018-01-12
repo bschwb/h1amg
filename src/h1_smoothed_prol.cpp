@@ -463,7 +463,7 @@ UPtrSMdbl BuildOffDiagSubstitutionMatrix(
   };
   ParallelFor(table.Size(), [&] (auto row) {
     QuickSort(table[row], less_second);
-  });
+    }, TasksPerThread(5));
   Tsubst_sort.Stop();
 
   static Timer Tsubst_write("H1 Build Subst Matrix - write into matrix");
