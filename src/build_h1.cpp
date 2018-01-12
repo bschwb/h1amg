@@ -15,7 +15,7 @@ using namespace ngla;
 
 
 #include "concurrentqueue.h"
-typedef moodycamel::ConcurrentQueue<int> TQueue; 
+typedef moodycamel::ConcurrentQueue<size_t> TQueue; 
 typedef moodycamel::ProducerToken TPToken; 
 typedef moodycamel::ConsumerToken TCToken; 
 
@@ -27,7 +27,7 @@ namespace h1amg
   static TQueue queue;
 
   template <typename TFUNC>
-  void RunParallelDependency (const Table<int> & dag,
+  void RunParallelDependency (FlatTable<int> dag,
                               TFUNC func)
   {
     Array<atomic<int>> cnt_dep(dag.Size());
@@ -203,8 +203,18 @@ shared_ptr<H1AMG_Mat> BuildH1AMG(
   static Timer Tdist1sorted("Dist1 Sorted Collapsing");
   Tdist1sorted.Start();
 
+  Array<bool> vertex_collapse(nv);
+  Array<bool> edge_collapse(ne);
+  edge_collapse = false;
+  vertex_collapse = false;
+
+  Array<int> vertex_collapse_to(nv);
+  for (size_t i = 0; i < nv; i++)
+    vertex_collapse_to[i] = i;
+  
   Dist1Collapser collapser(nv, ne);
   Array<Edge> edges(ne);
+
   ParallelFor (ne, [&] (size_t edge)
                {
                  edges[edge] = Edge(edge, edge_to_vertices[edge][0], edge_to_vertices[edge][1]);
@@ -238,15 +248,33 @@ shared_ptr<H1AMG_Mat> BuildH1AMG(
   RunParallelDependency (edge_dag,
                          [&] (int edgenr)
                          {
+                           auto v0 = edge_to_vertices[edgenr][0];
+                           auto v1 = edge_to_vertices[edgenr][1];
+                           if (edge_collapse_weight[edgenr] >= 0.01 && !vertex_collapse[v0] && !vertex_collapse[v1])
+                             {
+                               edge_collapse[edgenr] = true;
+                               vertex_collapse[v0] = true;
+                               vertex_collapse[v1] = true;
+                               auto minv = min(v0,v1);
+                               vertex_collapse_to[v0] = minv;
+                               vertex_collapse_to[v1] = minv;
+                             }
+                             /*
                            auto edge = edges[edgenr];
                            if (edge_collapse_weight[edge.id] >= 0.01 && !collapser.AnyVertexCollapsed(edge))
                              collapser.CollapseEdge(edge);
+                             */
                          });
   Tdist1sorted.Stop();
+
+  for (int i = 0; i < nv; i++)
+    vertex_collapse[i] = (vertex_collapse_to[i] != i);
+
   
+  /*
   static Timer tvcoll("Interm Vcollapse");
   tvcoll.Start();
-  Array<bool> vertex_collapse(nv);
+
   for (int vert = 0; vert < nv; ++vert) {
     vertex_collapse[vert] = (collapser.GetCollapsedToVertex(vert) != vert);
   }
@@ -254,12 +282,12 @@ shared_ptr<H1AMG_Mat> BuildH1AMG(
 
   static Timer tecoll("Interm Ecollapse");
   tecoll.Start();
-  Array<bool> edge_collapse(ne);
   for (auto edge : edges) {
     edge_collapse[edge.id] = collapser.IsEdgeCollapsed(edge);
   }
   tecoll.Stop();
-
+  */
+  
   /*
   *testout << "edge_weights = " << edge_collapse_weight << endl;  
   *testout << "edge_collapse = " << edge_collapse << endl;
