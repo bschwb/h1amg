@@ -19,12 +19,14 @@ public:
   // Construct a Dist1Collapser
   Dist1Collapser(size_t t_nr_vertices, size_t t_nr_edges)
     : m_vertex_collapsed_to(t_nr_vertices),
-      m_vertex_collapsed_edge(t_nr_vertices, std::experimental::nullopt),
-      m_edge_collapsed(t_nr_edges, false)
+      m_vertex_collapsed_edge(t_nr_vertices), // , std::experimental::nullopt),
+      m_edge_collapsed(t_nr_edges) // , false)
   {
     static ngstd::Timer Tcollaps_init("Collapse Init");
     ngstd::RegionTimer Rcollaps_init(Tcollaps_init);
 
+    m_edge_collapsed = false;
+    
     for (size_t vertex_i=0; vertex_i < t_nr_vertices; ++vertex_i) {
       m_vertex_collapsed_to[vertex_i] = vertex_i;
     }
@@ -61,10 +63,10 @@ public:
   }
 
 private:
-  std::vector<size_t> m_vertex_collapsed_to;
-  std::vector<std::experimental::optional<Edge>> m_vertex_collapsed_edge;
+  Array<size_t> m_vertex_collapsed_to;
+  Array<std::experimental::optional<Edge>> m_vertex_collapsed_edge;
 
-  std::vector<bool> m_edge_collapsed;
+  Array<bool> m_edge_collapsed;
 };
 
 }  // myamg

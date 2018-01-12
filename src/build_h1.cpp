@@ -13,8 +13,110 @@ using namespace ngla;
 
 #include "build_h1.hpp"
 
+
+#include "concurrentqueue.h"
+typedef moodycamel::ConcurrentQueue<int> TQueue; 
+typedef moodycamel::ProducerToken TPToken; 
+typedef moodycamel::ConsumerToken TCToken; 
+
+
 namespace h1amg
 {
+
+
+  static TQueue queue;
+
+  template <typename TFUNC>
+  void RunParallelDependency (const Table<int> & dag,
+                              TFUNC func)
+  {
+    Array<atomic<int>> cnt_dep(dag.Size());
+
+    for (auto & d : cnt_dep) 
+      d.store (0, memory_order_relaxed);
+
+    static Timer t_cntdep("count dep");
+    t_cntdep.Start();
+    ParallelFor (Range(dag),
+                 [&] (int i)
+                 {
+                   for (int j : dag[i])
+                     cnt_dep[j]++;
+                 });
+    t_cntdep.Stop();    
+
+    
+    Array<int> ready(dag.Size());
+    ready.SetSize0();
+    int num_final = 0;
+
+    for (int j : Range(cnt_dep))
+      {
+        if (cnt_dep[j] == 0) ready.Append(j);
+        if (dag[j].Size() == 0) num_final++;
+      }
+
+
+    if (!task_manager)
+      {
+        while (ready.Size())
+          {
+            int size = ready.Size();
+            int nr = ready[size-1];
+            ready.SetSize(size-1);
+            
+            func(nr);
+            
+            for (int j : dag[nr])
+              {
+                cnt_dep[j]--;
+                if (cnt_dep[j] == 0)
+                  ready.Append(j);
+              }
+          }
+        return;
+      }
+
+    atomic<int> cnt_final(0);
+    SharedLoop sl(Range(ready));
+
+    task_manager -> CreateJob 
+      ([&] (const TaskInfo & ti)
+       {
+        TPToken ptoken(queue); 
+        TCToken ctoken(queue); 
+        
+        for (int i : sl)
+          queue.enqueue (ptoken, ready[i]);
+
+        while (1)
+           {
+             if (cnt_final >= num_final) break;
+
+             int nr;
+             if(!queue.try_dequeue_from_producer(ptoken, nr)) 
+               if(!queue.try_dequeue(ctoken, nr))  
+                 continue; 
+             
+             if (dag[nr].Size() == 0)
+               cnt_final++;
+
+             func(nr);
+
+             for (int j : dag[nr])
+               {
+                 if (--cnt_dep[j] == 0)
+                   queue.enqueue (ptoken, j);
+               }
+           }
+       });
+  }
+
+
+
+  
+
+  
 
 using UPtrSMdbl = unique_ptr<SparseMatrixTM<double>>;
 using SPtrSMdbl = shared_ptr<SparseMatrixTM<double>>;
@@ -54,6 +156,7 @@ shared_ptr<H1AMG_Mat> BuildH1AMG(
   //     edge_to_vertices, edge_collapse_weight, vertex_collapse_weight, free_dofs, edge_collapse,
   //     vertex_collapse);
 
+  /*
   static Timer Tdist1sorted("Dist1 Sorted Collapsing");
   Tdist1sorted.Start();
   static Timer t1("Dist1 Sorted Collapsing sorting");
@@ -87,7 +190,53 @@ shared_ptr<H1AMG_Mat> BuildH1AMG(
   }
   t2.Stop();
   Tdist1sorted.Stop();
+  */
 
+  
+  static Timer Tdist1sorted("Dist1 Sorted Collapsing");
+  Tdist1sorted.Start();
+
+  Dist1Collapser collapser(nv, ne);
+  Array<Edge> edges(ne);
+  ParallelFor (ne, [&] (size_t edge)
+               {
+                 edges[edge] = Edge(edge, edge_to_vertices[edge][0], edge_to_vertices[edge][1]);
+               });
+
+  TableCreator<int> v2e_creator(nv);
+  for ( ; !v2e_creator.Done(); v2e_creator++)
+    ParallelFor (ne, [&] (size_t e)
+      {
+        for (int j = 0; j < 2; j++)
+          v2e_creator.Add (edge_to_vertices[e][j], e);
+      });
+  Table<int> v2e = v2e_creator.MoveTable();
+
+  ParallelFor (v2e.Size(), [&] (size_t vnr)
+               {
+                 QuickSortI (edge_collapse_weight, v2e[vnr]);
+               });
+  
+  // build edge dependency
+  TableCreator<int> edge_dag_creator(ne);
+  for ( ; !edge_dag_creator.Done(); edge_dag_creator++)  
+    ParallelFor (v2e.Size(), [&] (size_t vnr)
+      {
+        auto vedges = v2e[vnr];
+        for (int j = 0; j+1 < vedges.Size(); j++)
+          edge_dag_creator.Add (vedges[j+1], vedges[j]);
+      });
+  Table<int> edge_dag = edge_dag_creator.MoveTable();
+
+  RunParallelDependency (edge_dag,
+                         [&] (int edgenr)
+                         {
+                           auto edge = edges[edgenr];
+                           if (edge_collapse_weight[edge.id] >= 0.01 && !collapser.AnyVertexCollapsed(edge))
+                             collapser.CollapseEdge(edge);
+                         });
+  Tdist1sorted.Stop();
+  
   static Timer tvcoll("Interm Vcollapse");
   tvcoll.Start();
   Array<bool> vertex_collapse(nv);
@@ -104,6 +253,18 @@ shared_ptr<H1AMG_Mat> BuildH1AMG(
   }
   tecoll.Stop();
 
+  /*
+  *testout << "edge_weights = " << edge_collapse_weight << endl;  
+  *testout << "edge_collapse = " << edge_collapse << endl;
+
+  {
+    int cnt = 0;
+    for (bool b : edge_collapse)
+      if (b) cnt++;
+    *testout << "marked: " << cnt << endl;
+  }
+  */
+  
   int nr_coarse_vertices = ComputeFineToCoarseVertex(
       edge_to_vertices, nv, edge_collapse, vertex_collapse, vertex_coarse);
 
