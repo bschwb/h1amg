@@ -91,6 +91,7 @@ namespace h1amg
     task_manager -> CreateJob 
       ([&] (const TaskInfo & ti)
        {
+         size_t my_final = 0;
         TPToken ptoken(queue); 
         TCToken ctoken(queue); 
         
@@ -103,13 +104,19 @@ namespace h1amg
 
              int nr;
              if(!queue.try_dequeue_from_producer(ptoken, nr)) 
-               if(!queue.try_dequeue(ctoken, nr))  
-                 continue; 
+               if(!queue.try_dequeue(ctoken, nr))
+                 {
+                   if (my_final)
+                     {
+                       cnt_final += my_final;
+                       my_final = 0;
+                     }
+                   continue;
+                 }
 
-	     // cnt_dep[nr]--;   // only for mem-sync
-	     
              if (dag[nr].Size() == 0)
-               cnt_final++;
+               my_final++;
+               // cnt_final++;
 
              func(nr);
 
@@ -225,18 +232,6 @@ shared_ptr<H1AMG_Mat> BuildH1AMG(
   edge_collapse = false;
   vertex_collapse = false;
 
-  Array<int> vertex_collapse_to(nv);
-  for (size_t i = 0; i < nv; i++)
-    vertex_collapse_to[i] = i;
-  
-  Dist1Collapser collapser(nv, ne);
-  Array<Edge> edges(ne);
-
-  ParallelFor (ne, [&] (size_t edge)
-               {
-                 edges[edge] = Edge(edge, edge_to_vertices[edge][0], edge_to_vertices[edge][1]);
-               });
-
   TableCreator<int> v2e_creator(nv);
   for ( ; !v2e_creator.Done(); v2e_creator++)
     ParallelFor (ne, [&] (size_t e)
@@ -273,49 +268,22 @@ shared_ptr<H1AMG_Mat> BuildH1AMG(
                                edge_collapse[edgenr] = true;
                                vertex_collapse[v0] = true;
                                vertex_collapse[v1] = true;
-                               auto minv = min(v0,v1);
-                               vertex_collapse_to[v0] = minv;
-                               vertex_collapse_to[v1] = minv;
                              }
-                             /*
-                           auto edge = edges[edgenr];
-                           if (edge_collapse_weight[edge.id] >= 0.01 && !collapser.AnyVertexCollapsed(edge))
-                             collapser.CollapseEdge(edge);
-                             */
                          });
   Tdist1sorted.Stop();
 
-  for (int i = 0; i < nv; i++)
-    vertex_collapse[i] = (vertex_collapse_to[i] != i);
-
-  
-  /*
-  static Timer tvcoll("Interm Vcollapse");
-  tvcoll.Start();
-
-  for (int vert = 0; vert < nv; ++vert) {
-    vertex_collapse[vert] = (collapser.GetCollapsedToVertex(vert) != vert);
-  }
-  tvcoll.Stop();
-
-  static Timer tecoll("Interm Ecollapse");
-  tecoll.Start();
-  for (auto edge : edges) {
-    edge_collapse[edge.id] = collapser.IsEdgeCollapsed(edge);
-  }
-  tecoll.Stop();
-  */
+  vertex_collapse = false;
+  for (int e = 0; e < ne; e++)
+    if (edge_collapse[e])
+      {
+        auto v0 = edge_to_vertices[e][0];
+        auto v1 = edge_to_vertices[e][1];
+        vertex_collapse[max2(v0,v1)] = true;
+      }
   
   /*
   *testout << "edge_weights = " << edge_collapse_weight << endl;  
   *testout << "edge_collapse = " << edge_collapse << endl;
-
-  {
-    int cnt = 0;
-    for (bool b : edge_collapse)
-      if (b) cnt++;
-    *testout << "marked: " << cnt << endl;
-  }
   */
   
   int nr_coarse_vertices = ComputeFineToCoarseVertex(
