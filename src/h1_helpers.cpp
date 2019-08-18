@@ -35,7 +35,7 @@ void ComputeCollapseWeights(
   Tcweights_vertstr.Start();
   ParallelFor(nr_edges, [&] (int i) {
     for (int j = 0; j < 2; ++j) {
-      AsAtomic(vertex_strength[edge_to_vertices[i][j]]) += weights_edges[i];
+      AtomicAdd(vertex_strength[edge_to_vertices[i][j]], weights_edges[i]);
     }
   });
   Tcweights_vertstr.Stop();
@@ -245,7 +245,7 @@ void ComputeCoarseWeightsEdges(
 
   ParallelFor(edge_to_vertices.Size(), [&] (int i) {
     if (edge_coarse[i] != -1) {
-      AsAtomic(weights_edges_coarse[edge_coarse[i]]) += weights_edges[i];
+      AtomicAdd(weights_edges_coarse[edge_coarse[i]], weights_edges[i]);
     }
   });
 }
@@ -272,7 +272,7 @@ void ComputeCoarseWeightsVertices(
   ParallelFor(nr_vertices, [&] (int fine_vertex) {
     int coarse_vertex = vertex_coarse[fine_vertex];
     if (coarse_vertex != -1) {
-      AsAtomic(weights_vertices_coarse[coarse_vertex]) += weights_vertices[fine_vertex];
+      AtomicAdd(weights_vertices_coarse[coarse_vertex], weights_vertices[fine_vertex]);
     }
   });
   Tcvweights_fvweight.Stop();
@@ -286,7 +286,7 @@ void ComputeCoarseWeightsVertices(
       if (cvertex1 == -1 && cvertex2 != -1) {
         // *testout << "edge " << fine_edge << " between cvert " << cvertex1
         //          << " and " << cvertex2 << endl;
-        AsAtomic(weights_vertices_coarse[cvertex2]) += weights_edges[fine_edge];
+        AtomicAdd(weights_vertices_coarse[cvertex2], weights_edges[fine_edge]);
       }
     }
   });
