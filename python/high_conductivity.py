@@ -45,7 +45,7 @@ with ngs.TaskManager():
     lam = ngs.DomainConstantCF([1, 1000])
     a = ngs.BilinearForm(fes, symmetric=True)
     a += ngs.SymbolicBFI(lam * grad(u) * grad(v))
-    c = ngs.Preconditioner(a, 'h1amg', flags={'test': True, 'levels': 10})
+    c = ngs.Preconditioner(a, 'h1amg2', flags={'test': True, 'levels': 10})
 
     gfu = ngs.GridFunction(fes)
 

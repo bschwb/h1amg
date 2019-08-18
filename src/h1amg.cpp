@@ -45,7 +45,7 @@ void H1AMG::InitLevel(shared_ptr<BitArray> afreedofs)
   RegionTimer Rinit_level(Tinit_level);
   *testout << "initlevel amg" << endl;
   freedofs = afreedofs;
-  int nr_dofs = freedofs->Size(); 
+  int nr_dofs = freedofs->Size();
   weights_vertices = Array<double>(nr_dofs);
   weights_vertices = 0;
 }
@@ -70,7 +70,7 @@ void H1AMG::FinalizeLevel(const BaseMatrix* mat)
        weights[i] = weight;
        edge_to_vertices[i] = key;
      });
-  
+
   Tcreate_e2v.Stop();
 
   amg_matrix = BuildH1AMG(
@@ -95,7 +95,7 @@ void H1AMG::AddElementMatrixCommon(
   int tid = TaskManager::GetThreadId();
   ThreadRegionTimer reg(addelmat,tid);
   NgProfiler::StartThreadTimer (addelmat1, tid);
-  
+
   auto ndof = elmat.Height();
   FlatMatrix<double> constant_elmat(ndof, lh);
   FlatMatrix<double> nullspace_elmat(ndof, lh);
@@ -129,7 +129,7 @@ void H1AMG::AddElementMatrixCommon(
         used.Set(j);
 
         {
-          ThreadRegionTimer reg(addelmat2,tid);            
+          ThreadRegionTimer reg(addelmat2,tid);
           CalcSchurComplement(nullspace_elmat, schur_complement, used, lh);
         }
         double schur_entry = schur_complement(0);
@@ -141,7 +141,7 @@ void H1AMG::AddElementMatrixCommon(
         }
         else {
           INT<2> i2(first_dof, second_dof);
-          par_dof_pair_weights.Do (i2, [schur_entry] (auto & v) { v += 0.0; });          
+          par_dof_pair_weights.Do (i2, [schur_entry] (auto & v) { v += 0.0; });
         }
       }
     }
@@ -167,6 +167,6 @@ void H1AMG::AddElementMatrix(
   AddElementMatrixCommon(dnums, combined_elmat, lh);
 }
 
-RegisterPreconditioner<H1AMG> initmyamg("h1amg");
+RegisterPreconditioner<H1AMG> initmyamg("h1amg2");
 
 }  // h1amg

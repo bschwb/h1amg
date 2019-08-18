@@ -34,7 +34,7 @@ def test_h1_real():
         a = ngs.BilinearForm(fes, symmetric=True)
         a += ngs.SymbolicBFI(grad(u) * grad(v))
 
-        c = ngs.Preconditioner(a, 'h1amg')
+        c = ngs.Preconditioner(a, 'h1amg2')
         a.Assemble()
 
         solver = ngs.CGSolver(mat=a.mat, pre=c.mat)

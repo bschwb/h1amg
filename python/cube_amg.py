@@ -38,7 +38,7 @@ with ngs.TaskManager():
     a = ngs.BilinearForm(fes, symmetric=False)
     a += ngs.SymbolicBFI(grad(u) * grad(v) + u * v)
 
-    c = ngs.Preconditioner(a, 'h1amg')
+    c = ngs.Preconditioner(a, 'h1amg2')
 
     gfu = ngs.GridFunction(fes)
     bvp = ngs.BVP(bf=a, lf=f, gf=gfu, pre=c)
