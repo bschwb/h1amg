@@ -48,8 +48,8 @@ public:
   // Return y as the result of the preconditioner applied to x.
   virtual void Mult(const ngla::BaseVector& b, ngla::BaseVector& x) const override;
 
-  virtual ngla::AutoVector CreateVector() const override
-  { return m_system->CreateVector(); }
+  virtual ngla::AutoVector CreateColVector() const override
+  { return m_system->CreateColVector(); }
 
 private:
   shared_ptr<ngla::BaseSparseMatrix> m_system = nullptr;

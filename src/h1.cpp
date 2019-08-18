@@ -85,13 +85,13 @@ void H1AMG_Mat::Mult(const BaseVector& b, BaseVector& x) const
   x = 0;
   m_bjacobi->GSSmooth(x, b, m_smoother_its);
 
-  auto residuum = m_system->CreateVector();
+  auto residuum = m_system->CreateColVector();
   residuum = b - (*m_system) * x;
 
-  auto coarse_residuum = m_recursive->CreateVector();
+  auto coarse_residuum = m_recursive->CreateColVector();
   coarse_residuum = (*m_trans_prolongation) * residuum;
 
-  auto coarse_x = m_recursive->CreateVector();
+  auto coarse_x = m_recursive->CreateColVector();
   m_recursive->Mult(coarse_residuum, coarse_x);
 
   x += (*m_prolongation) * coarse_x;
