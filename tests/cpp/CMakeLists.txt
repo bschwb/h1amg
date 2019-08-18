@@ -3,7 +3,7 @@ add_executable(test_h1amg
   test_h1_helpers.cpp
   test_h1amg_helpers.cpp)
 
-set_property(TARGET test_h1amg PROPERTY CXX_STANDARD 14)
+set_property(TARGET test_h1amg PROPERTY CXX_STANDARD 17)
 set_property(TARGET test_h1amg PROPERTY CXX_STANDARD_REQUIRED ON)
 
 add_dependencies(test_h1amg h1amg)

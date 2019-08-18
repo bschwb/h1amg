@@ -10,7 +10,7 @@ add_library(h1amg SHARED
 
 target_link_libraries(h1amg ngsolve)
 
-set_property(TARGET h1amg PROPERTY CXX_STANDARD 14)
+set_property(TARGET h1amg PROPERTY CXX_STANDARD 17)
 set_property(TARGET h1amg PROPERTY CXX_STANDARD_REQUIRED ON)
 
 install(TARGETS h1amg DESTINATION ${NGSOLVE_INSTALL_DIR_LIB})
