@@ -35,7 +35,7 @@ struct H1Options {
 //   * min_verts = 20
 //   * special prolongation every 3rd level
 std::shared_ptr<H1AMG_Mat> BuildH1AMG(
-    shared_ptr<ngla::SparseMatrixTM<double>> sysmat, const ngstd::Array<INT<2>>& edge_to_vertices,
+    shared_ptr<ngla::BaseSparseMatrix> sysmat, const ngstd::Array<INT<2>>& edge_to_vertices,
     const ngstd::Array<double>& weights_edges, const ngstd::Array<double>& weights_vertices,
     shared_ptr<ngstd::BitArray> free_dofs, const H1Options& h1_options);
 

@@ -9,6 +9,7 @@ ngmesh.ini
 
 test.out
 tags
+TAGS
 
 build/
 *.cpp~

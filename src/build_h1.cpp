@@ -15,9 +15,9 @@ using namespace ngla;
 
 
 #include "concurrentqueue.h"
-typedef moodycamel::ConcurrentQueue<size_t> TQueue; 
-typedef moodycamel::ProducerToken TPToken; 
-typedef moodycamel::ConsumerToken TCToken; 
+typedef moodycamel::ConcurrentQueue<size_t> TQueue;
+typedef moodycamel::ProducerToken TPToken;
+typedef moodycamel::ConsumerToken TCToken;
 
 
 namespace h1amg
@@ -32,7 +32,7 @@ namespace h1amg
   {
     Array<atomic<int>> cnt_dep(dag.Size());
 
-    for (auto & d : cnt_dep) 
+    for (auto & d : cnt_dep)
       d.store (0, memory_order_relaxed);
 
     static Timer t_cntdep("count dep");
@@ -43,7 +43,7 @@ namespace h1amg
                    for (int j : dag[i])
                      cnt_dep[j]++;
                  });
-    t_cntdep.Stop();    
+    t_cntdep.Stop();
 
     atomic<size_t> num_ready(0), num_final(0);
     ParallelForRange (cnt_dep.Size(), [&] (IntRange r)
@@ -63,7 +63,7 @@ namespace h1amg
     for (int j : Range(cnt_dep))
       if (cnt_dep[j] == 0) ready.Append(j);
 
-    
+
     if (!task_manager)
       // if (true)
       {
@@ -72,9 +72,9 @@ namespace h1amg
             int size = ready.Size();
             int nr = ready[size-1];
             ready.SetSize(size-1);
-            
+
             func(nr);
-            
+
             for (int j : dag[nr])
               {
                 cnt_dep[j]--;
@@ -88,13 +88,13 @@ namespace h1amg
     atomic<int> cnt_final(0);
     SharedLoop2 sl(Range(ready));
 
-    task_manager -> CreateJob 
+    task_manager -> CreateJob
       ([&] (const TaskInfo & ti)
        {
          size_t my_final = 0;
-        TPToken ptoken(queue); 
-        TCToken ctoken(queue); 
-        
+        TPToken ptoken(queue);
+        TCToken ctoken(queue);
+
         for (int i : sl)
           queue.enqueue (ptoken, ready[i]);
 
@@ -103,7 +103,7 @@ namespace h1amg
              if (cnt_final >= num_final) break;
 
              int nr;
-             if(!queue.try_dequeue_from_producer(ptoken, nr)) 
+             if(!queue.try_dequeue_from_producer(ptoken, nr))
                if(!queue.try_dequeue(ctoken, nr))
                  {
                    if (my_final)
@@ -131,17 +131,13 @@ namespace h1amg
 
 
 
-  
-
-  
-
 using UPtrSMdbl = unique_ptr<SparseMatrixTM<double>>;
 using SPtrSMdbl = shared_ptr<SparseMatrixTM<double>>;
 
 UPtrSMdbl CreateProlongation(const Array<int>& vertex_coarse, int ncv, bool complx);
 
 shared_ptr<H1AMG_Mat> BuildH1AMG(
-    SPtrSMdbl sysmat, const Array<INT<2>>& edge_to_vertices,
+    shared_ptr<BaseSparseMatrix> sysmat, const Array<INT<2>>& edge_to_vertices,
     const Array<double>& weights_edges, const Array<double>& weights_vertices,
     shared_ptr<BitArray> free_dofs, const H1Options& h1_options)
 {
@@ -222,8 +218,8 @@ shared_ptr<H1AMG_Mat> BuildH1AMG(
                {
                  invindices[indices[edge]] = edge;
                });
-  
-  
+
+
   static Timer Tdist1sorted("Dist1 Sorted Collapsing");
   Tdist1sorted.Start();
 
@@ -246,10 +242,10 @@ shared_ptr<H1AMG_Mat> BuildH1AMG(
 		 // QuickSortI (edge_collapse_weight, v2e[vnr]);
 		 QuickSortI (invindices, v2e[vnr]);
                }, TasksPerThread(5));
-  
+
   // build edge dependency
   TableCreator<int> edge_dag_creator(ne);
-  for ( ; !edge_dag_creator.Done(); edge_dag_creator++)  
+  for ( ; !edge_dag_creator.Done(); edge_dag_creator++)
     ParallelFor (v2e.Size(), [&] (size_t vnr)
       {
         auto vedges = v2e[vnr];
@@ -280,12 +276,12 @@ shared_ptr<H1AMG_Mat> BuildH1AMG(
         auto v1 = edge_to_vertices[e][1];
         vertex_collapse[max2(v0,v1)] = true;
       }
-  
+
   /*
-  *testout << "edge_weights = " << edge_collapse_weight << endl;  
+  *testout << "edge_weights = " << edge_collapse_weight << endl;
   *testout << "edge_collapse = " << edge_collapse << endl;
   */
-  
+
   int nr_coarse_vertices = ComputeFineToCoarseVertex(
       edge_to_vertices, nv, edge_collapse, vertex_collapse, vertex_coarse);
 
