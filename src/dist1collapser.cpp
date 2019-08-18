@@ -3,9 +3,6 @@
 #include <algorithm>
 using namespace std;
 
-#include <experimental/optional>
-using namespace std::experimental;
-
 #include <ngstd.hpp>
 using namespace ngstd;
 
