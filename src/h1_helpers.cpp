@@ -158,7 +158,7 @@ void ComputeFineToCoarseEdge(
   ngstd::ParallelHashTable<INT<2>, int> edge_coarse_table;
   // compute fine edge to coarse edge map (edge_coarse)
 
-  ParallelFor (nr_edges, [&] (int edge) 
+  ParallelFor (nr_edges, [&] (int edge)
     {
     auto verts = edge_to_vertices[edge];
     int vertex1 = vertex_coarse[verts[0]];
@@ -202,14 +202,14 @@ void ComputeFineToCoarseEdge(
 
   ParallelFor (edge_coarse_table.NumBuckets(),
                [&] (size_t nr)
-               {               
+               {
                  edge_coarse_table.Bucket(nr).Iterate
                    ([&coarse_edge_to_vertices] (INT<2> key, int val)
                     {
                       coarse_edge_to_vertices[val] = key;
                     });
                });
-  
+
   t2.Stop();
 
   t3.Start();

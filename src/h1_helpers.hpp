@@ -1,10 +1,12 @@
 #ifndef H1AMG_MAT_HELPERS_HPP_
 #define H1AMG_MAT_HELPERS_HPP_
 
+#include <ngstd.hpp>
+
 namespace h1amg
 {
   using ngstd::INT;
-  
+
 // Figure out best edges to collapse or vertices to collapse with ground
 // with iterative improvement.
 // Given is a edge to vertices mapping, collapse weights for the edges and

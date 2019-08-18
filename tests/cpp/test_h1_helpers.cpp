@@ -1,7 +1,7 @@
 #include <catch.hpp>
 
+#include <ngstd.hpp>
 #include <comp.hpp>
-#include <array.hpp>
 
 #include <h1_helpers.hpp>
 using namespace h1amg;
