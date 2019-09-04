@@ -51,6 +51,9 @@ public:
   virtual ngla::AutoVector CreateColVector() const override
   { return m_system->CreateColVector(); }
 
+  virtual ngla::AutoVector CreateRowVector() const override
+  { return m_system->CreateRowVector(); }
+
 private:
   shared_ptr<ngla::BaseSparseMatrix> m_system = nullptr;
   std::shared_ptr<ngla::BaseSparseMatrix> m_cmat = nullptr;
