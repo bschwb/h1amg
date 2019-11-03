@@ -9,7 +9,7 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif(NOT CMAKE_BUILD_TYPE)
 
-include_directories("${CMAKE_SOURCE_DIR}/include")
+include_directories(${NETGEN_INCLUDE_DIRS} "${CMAKE_SOURCE_DIR}/include")
 
 set(CMAKE_INSTALL_PREFIX ${NGSOLVE_INSTALL_DIR})
 
